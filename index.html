@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Anas El-Ghoudane</title>
+  <meta name="description" content="Anas El-Ghoudane, mathematics and computer science undergraduate researcher at the Universite de Montreal. Machine learning, calibration, remote sensing.">
+  <!-- inline favicon so the page makes zero network requests -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a1a1a'/%3E%3Ctext x='16' y='22' font-size='17' fill='%23fdfdfc' font-family='sans-serif' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
+  <style>
+    :root {
+      --measure: 40rem;   /* about 65ch, the line length the eye reads without fatigue */
+      --ink: #1a1a1a;     /* not pure black; #000 on white vibrates */
+      --muted: #555;
+      --link: #0b5cad;
+      --bg: #fdfdfc;      /* warm white; #fafafa reads cold and machine made */
+    }
+    * { box-sizing: border-box; }
+    body {
+      max-width: var(--measure);
+      margin: 0 auto;
+      padding: 3rem 1.25rem 4rem;   /* fixed gutter, not %, stays clean down to 320px */
+      font: 1.0625rem/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      text-wrap: pretty;
+    }
+    h1, h2 { line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+    h1 { font-size: 1.6rem; margin: 0 0 0.3rem; }
+    h2 { font-size: 1.15rem; margin: 2.5rem 0 0.75rem; }
+    p { margin: 0 0 1rem; }
+    ul { margin: 0; padding-left: 1.2rem; }
+    li { margin: 0 0 0.7rem; }
+    a { color: var(--link); }
+    a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+    .tagline { color: var(--muted); margin: 0; }
+    .meta { color: var(--muted); font-size: 0.9rem; }
+    .note { color: var(--muted); }   /* status marker, never a link */
+    footer { margin-top: 3rem; color: var(--muted); font-size: 0.9rem; }
+
+    /* one media query, so the OS decides the theme; no toggle, no JS */
+    @media (prefers-color-scheme: dark) {
+      :root { --ink: #dcdcdc; --muted: #9aa0a6; --link: #6fb3ff; --bg: #15171a; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Anas El-Ghoudane</h1>
+    <p class="tagline">Mathematics and computer science undergraduate researcher at the Université de Montréal.</p>
+  </header>
+
+  <main>
+    <section id="about">
+      <h2>About</h2>
+      <p>I am a third-year B.Sc. student in mathematics and computer science at the Université de Montréal. I do undergraduate research on theoretical machine learning for sequential decision-making, with a focus on stability and distribution shift in imitation learning, in the Department of Mathematics and Statistics.</p>
+      <p>I work where statistical guarantees meet practical systems: conformal prediction, calibration, distribution shift, and the reliability of learned models. I also work on remote sensing for satellite radar imagery.</p>
+    </section>
+
+    <section id="publications">
+      <h2>Publications</h2>
+      <ul>
+        <li>
+          <strong>A. El-Ghoudane</strong>.
+          <a href="https://nas01010101.github.io/clearsar-rfi-detection/">RFI Detection in Sentinel-1 SAR Imagery via Pseudo-Label Distillation and Multi-Resolution Ensemble</a>.
+          <span class="meta">IEEE International Conference on Image Processing (ICIP), 2026. Accepted, sole author. ESA ClearSAR Track 1 Grand Challenge.</span>
+        </li>
+      </ul>
+    </section>
+
+    <section id="projects">
+      <h2>Selected projects</h2>
+      <ul>
+        <li><a href="https://github.com/Nas01010101/clearsar-rfi-detection">ClearSAR</a>: pseudo-label distillation and a multi-resolution ensemble for radio-frequency interference detection in Sentinel-1 radar imagery. Code behind the ICIP 2026 paper.</li>
+        <li>warrant <span class="note">(research, code private)</span>: a calibrated trust layer for language-model agents. A conformal world model and an action firewall on one distribution-free coverage guarantee, served over MCP.</li>
+        <li>parsimony <span class="note">(research, code private)</span>: certified prompt compression that drops as much context as a distribution-free certificate allows, bounding the probability that the answer changes.</li>
+      </ul>
+    </section>
+
+    <section id="opensource">
+      <h2>Open source</h2>
+      <ul>
+        <li><a href="https://github.com/openclaw/openclaw/pulls?q=is%3Apr+author%3ANas01010101+is%3Amerged">openclaw</a>: four merged fixes, including UTF-16 surrogate handling in outbound chunkers, HTTP retry classification, session index alignment, and context-budget bounds.</li>
+        <li>Google DeepMind: a channel-axis fix in <a href="https://github.com/google-deepmind/dm_pix/pull/112">dm_pix</a> and a finite-difference fix in <a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">MuJoCo</a>. Both merged.</li>
+        <li><a href="https://github.com/huawei-noah/trustworthyAI/pull/193">Huawei trustworthyAI</a>: fixed a causal-discovery metric that reported true-positive rates above 1.0 by double-counting bidirectional edges. Merged.</li>
+        <li><a href="https://github.com/NVIDIA/warp/pull/1595">NVIDIA Warp</a>: fixed the Adam optimizer re-zeroing fp16 moment buffers. <span class="note">In review.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p><a href="https://github.com/Nas01010101">GitHub</a> · <a href="mailto:anaselghoudane@gmail.com">anaselghoudane@gmail.com</a></p>
+    <p class="meta">Last updated 2026. <a href="https://github.com/Nas01010101/nas01010101.github.io">Source</a>.</p>
+  </footer>
+</body>
+</html>
