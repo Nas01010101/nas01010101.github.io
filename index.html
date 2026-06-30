@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>Anas El-Ghoudane</title>
-  <meta name="description" content="Anas El-Ghoudane, mathematics and computer science undergraduate researcher at the Universite de Montreal. Machine learning, calibration, remote sensing.">
+  <title>Anas Elghoudane</title>
+  <meta name="description" content="Anas Elghoudane, mathematics and computer science undergraduate researcher at the Universite de Montreal. Machine learning, calibration, remote sensing.">
   <!-- inline favicon so the page makes zero network requests -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='23' font-size='18' fill='%23fff' font-family='Times New Roman,serif' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
   <style>
@@ -26,6 +26,7 @@
     li { margin: 0 0 0.5rem; }
     hr { border: 0; border-top: 1px solid #000; margin: 1.2rem 0; clear: both; }  /* clear ends the photo float */
     .photo { float: left; width: 150px; height: 185px; margin: 0.2rem 1.2rem 0.4rem 0; border: 1px solid #000; }
+    .photo svg { display: block; }   /* kill the inline-svg baseline gap */
     .tagline { font-style: italic; margin: 0; }
     .meta { color: #333; font-size: 0.95rem; }
     .note { color: #555; }
@@ -34,9 +35,15 @@
 </head>
 <body>
   <header>
-    <!-- empty profile picture frame; replace with <img src="photo.jpg" width="150" height="185" alt="Anas El-Ghoudane"> -->
-    <div class="photo"></div>
-    <h1>Anas El-Ghoudane</h1>
+    <!-- default no-photo avatar; replace the whole div with <img src="photo.jpg" width="150" height="185" alt="Anas Elghoudane"> -->
+    <div class="photo">
+      <svg viewBox="0 0 150 185" width="150" height="185" role="img" aria-label="No profile photo">
+        <rect width="150" height="185" fill="#e9ebee"/>
+        <circle cx="75" cy="64" r="28" fill="#b4bbc6"/>
+        <ellipse cx="75" cy="140" rx="48" ry="46" fill="#b4bbc6"/>
+      </svg>
+    </div>
+    <h1>Anas Elghoudane</h1>
     <p class="tagline">Mathematics and computer science undergraduate researcher at the Université de Montréal.</p>
   </header>
   <hr>
@@ -51,7 +58,7 @@
       <h2>Publications</h2>
       <ul>
         <li>
-          <strong>A. El-Ghoudane</strong>.
+          <strong>A. Elghoudane</strong>.
           <a href="https://nas01010101.github.io/clearsar-rfi-detection/">RFI Detection in Sentinel-1 SAR Imagery via Pseudo-Label Distillation and Multi-Resolution Ensemble</a>.
           <span class="meta">IEEE International Conference on Image Processing (ICIP), 2026. Accepted, sole author. ESA ClearSAR Track 1 Grand Challenge.</span>
         </li>
@@ -63,7 +70,6 @@
       <ul>
         <li><a href="https://github.com/Nas01010101/clearsar-rfi-detection">ClearSAR</a>: pseudo-label distillation and a multi-resolution ensemble for radio-frequency interference detection in Sentinel-1 radar imagery. Code behind the ICIP 2026 paper.</li>
         <li><a href="https://github.com/Nas01010101/scorchmark">scorchmark</a>: an MCP server and CLI that surfaces cross-provider cache-rebuild waste, model-swap savings, and pricing drift in AI-agent costs.</li>
-        <li><a href="https://github.com/Nas01010101/parsimony">parsimony</a>: certified prompt compression that drops as much context as a distribution-free certificate allows, bounding the probability that the answer changes.</li>
       </ul>
     </section>
 
