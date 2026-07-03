@@ -65,11 +65,13 @@
       </ul>
     </section>
 
-    <section id="projects">
-      <h2>Selected projects</h2>
+    <section id="current">
+      <h2>Current work</h2>
       <ul>
-        <li><a href="https://github.com/Nas01010101/clearsar-rfi-detection">ClearSAR</a>: pseudo-label distillation and a multi-resolution ensemble for radio-frequency interference detection in Sentinel-1 radar imagery. Code behind the ICIP 2026 paper.</li>
-        <li><a href="https://github.com/Nas01010101/CircuitSight">CircuitSight</a>: a computer-vision system that detects manufacturing defects on printed circuit boards, with a YOLOv8 detector and a FastAPI service for the production line.</li>
+        <li><strong>Biostatistics Intern</strong>, CHUM Research Center (CRCHUM) — supervised by Dre Ariane Godbout, MD, FRCPC and Emmanuel Marier-Tétrault, IPSSA, PhD. Multilevel (linear/Poisson) regression on repeated-measures glycemic data for a quasi-experimental study evaluating a pharmacist&ndash;nurse intervention against intrahospital hypo-/hyperglycemia. <span class="meta">Jul 2026&ndash;present.</span></li>
+        <li><strong>Quantitative Research Assistant</strong>, Université de Montréal — supervised by Prof. Arnaud Duhoux (Biostatistics, Faculty of Nursing). Data cleaning, descriptive statistics, and reproducible R reporting for a study on specialized nurse practitioner (IPS) practices. <span class="meta">Feb 2026&ndash;present.</span></li>
+        <li><strong>Full-Stack Developer (Research Assistant)</strong>, Université de Montréal — supervised by Prof. Neerusha Baurhoo Gokool (Faculty of Education). Front-end and back-end of an early-alert, student-retention web app with LLM-generated recommendations for first-year CEGEP students. <span class="meta">Mar 2026&ndash;present.</span></li>
+        <li><strong>Research Intern, Machine Learning</strong>, Applied Behavioural Research Laboratory — supervised by Prof. Marc Lanovaz (BCBA-D, School of Psychoeducation). ML models detecting treatment effects in single-case experimental design (SCED) data, benchmarked against visual analysis and the dual-criteria method. <span class="meta">May&ndash;Jul 2026.</span></li>
       </ul>
     </section>
 
@@ -77,6 +79,7 @@
       <h2>Open source</h2>
       <p class="meta">Merged fixes in upstream repositories.</p>
       <ul>
+        <li><a href="https://github.com/NVIDIA/warp/pull/1595">NVIDIA Warp #1595</a>: stop the Adam optimizer re-zeroing fp16 moment buffers.</li>
         <li><a href="https://github.com/openclaw/openclaw/pull/94756">openclaw #94756</a>: bound codex turn and start text when the context budget is non-positive.</li>
         <li><a href="https://github.com/openclaw/openclaw/pull/94257">openclaw #94257</a>: preserve media index alignment when reading user-turn files.</li>
         <li><a href="https://github.com/openclaw/openclaw/pull/93938">openclaw #93938</a>: guard UTF-16 surrogate pairs in outbound Telegram chunkers.</li>
@@ -84,7 +87,17 @@
         <li><a href="https://github.com/google-deepmind/dm_pix/pull/112">Google DeepMind dm_pix #112</a>: respect the channel axis in pad_to_size for channels-first images.</li>
         <li><a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">Google DeepMind MuJoCo</a>: use the box midpoint to choose the finite-difference direction in the optimizer.</li>
         <li><a href="https://github.com/huawei-noah/trustworthyAI/pull/193">Huawei trustworthyAI #193</a>: fix a causal-discovery metric reporting true-positive rates above 1.0 from double-counted bidirectional edges.</li>
-        <li><a href="https://github.com/NVIDIA/warp/pull/1595">NVIDIA Warp #1595</a>: stop the Adam optimizer re-zeroing fp16 moment buffers. <span class="note">In review.</span></li>
+      </ul>
+    </section>
+
+    <section id="issues">
+      <h2>Issues found</h2>
+      <p class="meta">Bugs reported upstream, several of which became the fixes above.</p>
+      <ul>
+        <li><a href="https://github.com/NVIDIA/warp/issues/1593">NVIDIA/warp #1593</a>: Adam.set_params re-zeros fp16 optimizer moment state on every call.</li>
+        <li><a href="https://github.com/openclaw/openclaw/issues/94254">openclaw #94254</a>: redact.ts over-masks ordinary identifiers as Apple app-specific passwords, corrupting persisted transcripts. <span class="note">Open.</span></li>
+        <li><a href="https://github.com/anthropics/claude-quickstarts/issues/415">claude-quickstarts #415</a>: browser-use demo ignores <code>only_n_most_recent_images</code>, so screenshots accumulate unbounded. <span class="note">Open.</span></li>
+        <li><a href="https://github.com/openclaw/openclaw/issues/93891">openclaw #93891</a>: config rewrite silently drops the openai-codex entry when an openai entry is already present.</li>
       </ul>
     </section>
   </main>
