@@ -70,7 +70,7 @@
       <h2>Flagship project</h2>
       <ul>
         <li>
-          <strong>Neurodiversity-Aware Composite Guardrail for Youth Mental Health AI Safety</strong> &mdash; Mila &times; Bell &times; Buzz HPC &times; Kids Help Phone AI Safety Hackathon. Team Lead (5 people), <strong>Special Recognition</strong> (top team of 80), $250 team prize.
+          <strong>Neurodiversity-Aware Composite Guardrail for Youth Mental Health AI Safety</strong> &mdash; Mila &times; Bell &times; Buzz HPC &times; Kids Help Phone AI Safety Hackathon. Team Lead (5 people), <strong>Special Mention</strong> (top team of 80+), $250 team prize.
           Built an input guardrail for a youth crisis-support chatbot: a Drift Diffusion Model (turn-by-turn risk accumulation, parameters tuned for neurodivergent communication patterns) fused with a bilingual (EN/FR) multi-model LLM-as-judge ensemble, which Anas led the design of. F1&nbsp;0.850 (precision 0.871, recall 0.831) on the official test set; 61.6% pass rate on a 458-case DEI-stratified adversarial stress suite (+8.6&nbsp;pp over the prior version).
           <p class="meta">The repository is private and stays that way: it lives in the hackathon organizers' GitHub org and touches real (synthetic but sensitive) youth crisis-support data under the event's data-handling terms.</p>
         </li>
@@ -97,7 +97,7 @@
         <li>
           <strong>NASA Space Apps Challenge</strong> &mdash; exoplanet-candidate classification.
           <p>Automated classification of exoplanet candidates from open space-agency data, built for the global NASA hackathon.</p>
-          <p class="meta"><a href="https://github.com/Nas01010101/NASA-Space-Apps-Challenge-2025">NASA-Space-Apps-Challenge-2025</a> &middot; <a href="https://github.com/Nas01010101/sat-collision-risk-visualizer">sat-collision-risk-visualizer</a> <span class="note">(repositories currently private)</span>.</p>
+          <p class="meta"><a href="https://github.com/Nas01010101/NASA-Space-Apps-Challenge-2025">Repository</a>.</p>
         </li>
         <li>
           <strong>AGIBOT World Challenge 2026</strong> &mdash; Reasoning-to-Action, ICRA&nbsp;2026.
@@ -125,29 +125,14 @@
     </section>
 
     <section id="opensource">
-      <h2>Open source</h2>
-      <p class="meta">Merged fixes in upstream repositories.</p>
+      <h2>Open-source contributions</h2>
+      <p class="meta">Merged fixes in major upstream libraries.</p>
       <ul>
-        <li><a href="https://github.com/NVIDIA/warp/pull/1595">NVIDIA Warp #1595</a>: stop the Adam optimizer re-zeroing fp16 moment buffers.</li>
-        <li><a href="https://github.com/openclaw/openclaw/pull/94756">openclaw #94756</a>: bound codex turn and start text when the context budget is non-positive.</li>
-        <li><a href="https://github.com/openclaw/openclaw/pull/94257">openclaw #94257</a>: preserve media index alignment when reading user-turn files.</li>
-        <li><a href="https://github.com/openclaw/openclaw/pull/93938">openclaw #93938</a>: guard UTF-16 surrogate pairs in outbound Telegram chunkers.</li>
-        <li><a href="https://github.com/openclaw/openclaw/pull/90954">openclaw #90954</a>: require an HTTP context for server-error retry classification in cron.</li>
-        <li><a href="https://github.com/google-deepmind/dm_pix/pull/112">Google DeepMind dm_pix #112</a>: respect the channel axis in pad_to_size for channels-first images.</li>
-        <li><a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">Google DeepMind MuJoCo</a>: use the box midpoint to choose the finite-difference direction in the optimizer.</li>
-        <li><a href="https://github.com/huawei-noah/trustworthyAI/pull/193">Huawei trustworthyAI #193</a>: fix a causal-discovery metric reporting true-positive rates above 1.0 from double-counted bidirectional edges.</li>
+        <li><strong>Google DeepMind</strong> &mdash; <a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">mujoco</a> (finite-difference optimizer bug) and <a href="https://github.com/google-deepmind/dm_pix/pull/112">dm_pix</a> (channel-axis handling in <code>pad_to_size</code>).</li>
+        <li><strong>NVIDIA</strong> &mdash; <a href="https://github.com/NVIDIA/warp/pull/1595">warp</a> (fp16 optimizer-state corruption in Adam); <strong>Huawei Noah's Ark</strong> &mdash; <a href="https://github.com/huawei-noah/trustworthyAI/pull/193">trustworthyAI</a> (causal-discovery metric, TPR&nbsp;&gt;&nbsp;1.0); <strong>Alibaba</strong> &mdash; <a href="https://github.com/QwenLM/Qwen-Agent/pull/883">Qwen-Agent</a> (tool-schema validation).</li>
+        <li><strong>OpenClaw</strong> &mdash; <a href="https://github.com/openclaw/openclaw/pulls?q=is:pr+author:Nas01010101">openclaw</a> (4 PRs): context-budget handling, session-data alignment, Telegram Unicode chunking, cron retry logic.</li>
       </ul>
-    </section>
-
-    <section id="issues">
-      <h2>Issues found</h2>
-      <p class="meta">Bugs reported upstream, several of which became the fixes above.</p>
-      <ul>
-        <li><a href="https://github.com/NVIDIA/warp/issues/1593">NVIDIA/warp #1593</a>: Adam.set_params re-zeros fp16 optimizer moment state on every call.</li>
-        <li><a href="https://github.com/openclaw/openclaw/issues/94254">openclaw #94254</a>: redact.ts over-masks ordinary identifiers as Apple app-specific passwords, corrupting persisted transcripts. <span class="note">Open.</span></li>
-        <li><a href="https://github.com/anthropics/claude-quickstarts/issues/415">claude-quickstarts #415</a>: browser-use demo ignores <code>only_n_most_recent_images</code>, so screenshots accumulate unbounded. <span class="note">Open.</span></li>
-        <li><a href="https://github.com/openclaw/openclaw/issues/93891">openclaw #93891</a>: config rewrite silently drops the openai-codex entry when an openai entry is already present.</li>
-      </ul>
+      <p>Also bug reports and code review &mdash; reproducible issues and PRs under review &mdash; across <code>jax</code>, <code>diffusers</code>, <code>pytorch-lightning</code>, <code>sglang</code>, <code>HEBO</code>, <code>penzai</code>, <code>fsspec</code>, and Anthropic <code>claude-quickstarts</code>.</p>
     </section>
   </main>
 
