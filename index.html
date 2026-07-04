@@ -3,143 +3,206 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <title>Anas Elghoudane</title>
-  <meta name="description" content="Anas Elghoudane, mathematics and computer science undergraduate researcher at the Universite de Montreal. AI safety and alignment, world models, machine learning for sequential decision-making.">
+  <meta name="description" content="Anas Elghoudane — mathematics and computer science undergraduate researcher at the Université de Montréal. AI safety and alignment, world models, machine learning for sequential decision-making.">
   <!-- inline favicon so the page makes zero network requests -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='23' font-size='18' fill='%23fff' font-family='Times New Roman,serif' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2312459b'/%3E%3Ctext x='16' y='23' font-size='19' fill='%23fff' font-family='Georgia,serif' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
   <style>
-    body {
-      max-width: 42rem;
-      margin: 2.5rem auto;
-      padding: 0 1.25rem;
-      font: 18px/1.5 "Times New Roman", Times, serif;   /* the vintage default, on purpose */
-      color: #000;            /* full black on white; this is the retro look, not the modern near-black */
-      background: #fff;
+    :root{
+      --bg:#fdfdfb; --fg:#1b1b18; --muted:#63615a; --faint:#8a877e;
+      --border:#e5e3da; --surface:#f6f5ef;
+      --accent:#12459b; --visited:#6a4b8a;
+      --measure:41rem;
+      --s1:.25rem; --s2:.5rem; --s3:.75rem; --s4:1rem; --s6:1.5rem; --s8:2rem; --s12:3rem;
     }
-    a { color: #0000ee; }
-    a:visited { color: #551a8b; }   /* keep the old visited-purple; it tells the reader what they have seen */
-    h1 { font-size: 1.9rem; margin: 0 0 0.15rem; }
-    h2 { font-size: 1.2rem; margin: 1.6rem 0 0.4rem; }
-    p { margin: 0 0 0.8rem; }
-    ul { margin: 0; padding-left: 1.4rem; }
-    li { margin: 0 0 0.5rem; }
-    hr { border: 0; border-top: 1px solid #000; margin: 1.2rem 0; clear: both; }  /* clear ends the photo float */
-    .photo { float: left; width: 150px; height: 185px; margin: 0.2rem 1.2rem 0.4rem 0; border: 1px solid #000; }
-    .photo svg { display: block; }   /* kill the inline-svg baseline gap */
-    .tagline { font-style: italic; margin: 0; }
-    .meta { color: #333; font-size: 0.95rem; }
-    .note { color: #555; }
-    footer { margin-top: 1.5rem; font-size: 0.95rem; color: #333; }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#16161a; --fg:#e7e5dd; --muted:#a6a49a; --faint:#7d7b72;
+        --border:#2b2b30; --surface:#1e1e23;
+        --accent:#7fa6e8; --visited:#b79ad6;
+      }
+    }
+    *{ box-sizing:border-box; }
+    html{ -webkit-text-size-adjust:100%; }
+    body{
+      max-width:var(--measure); margin:0 auto; padding:var(--s12) var(--s6) var(--s8);
+      font:17px/1.62 Charter,"Bitstream Charter","Sitka Text",Cambria,Georgia,serif;
+      color:var(--fg); background:var(--bg);
+      -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    }
+    a{ color:var(--accent); text-decoration:none; }
+    a:visited{ color:var(--visited); }
+    a:hover{ text-decoration:underline; text-underline-offset:2px; }
+    a:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:2px; }
+    h1{ font-size:2rem; line-height:1.1; margin:0; letter-spacing:-.01em; }
+    h2{
+      font-size:.82rem; text-transform:uppercase; letter-spacing:.09em; font-weight:600;
+      color:var(--faint); margin:var(--s12) 0 var(--s4); padding-bottom:var(--s2);
+      border-bottom:1px solid var(--border);
+    }
+    p{ margin:0 0 var(--s3); }
+    ul{ margin:0; padding:0; list-style:none; }
+    .item{ margin:0 0 var(--s6); }
+    .item:last-child{ margin-bottom:0; }
+    .item .lead{ font-weight:600; }
+    .item p{ margin:var(--s1) 0 0; }
+    strong{ font-weight:600; }
+    code{
+      font:.86em/1 ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+      background:var(--surface); padding:.12em .38em; border-radius:4px;
+    }
+    .meta{ color:var(--muted); font-size:.92rem; }
+    .links{ display:flex; flex-wrap:wrap; gap:var(--s2) var(--s4); margin-top:var(--s3); font-size:.95rem; }
+    .flag{
+      border-left:2px solid var(--accent); padding-left:var(--s4); margin-left:-.1rem;
+    }
+    .tag{
+      display:inline-block; font-size:.72rem; text-transform:uppercase; letter-spacing:.07em;
+      color:var(--accent); font-weight:600; vertical-align:.12em; margin-left:.5rem;
+    }
+    /* header */
+    header{ display:flex; gap:var(--s6); align-items:flex-start; }
+    .who{ flex:1; min-width:0; }
+    .tagline{ color:var(--muted); margin:var(--s3) 0 0; font-size:1.02rem; }
+    .avatar{
+      flex:none; width:104px; height:104px; border-radius:12px; overflow:hidden;
+      border:1px solid var(--border); background:var(--surface);
+    }
+    .avatar svg{ display:block; width:100%; height:100%; }
+    hr{ border:0; border-top:1px solid var(--border); margin:var(--s8) 0 0; }
+    footer{ margin-top:var(--s12); padding-top:var(--s4); border-top:1px solid var(--border);
+      color:var(--muted); font-size:.9rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:var(--s2); }
+    @media (max-width:520px){
+      body{ padding:var(--s8) var(--s4); }
+      header{ gap:var(--s4); }
+      .avatar{ width:76px; height:76px; }
+      h1{ font-size:1.7rem; }
+    }
   </style>
 </head>
 <body>
   <header>
-    <!-- default no-photo avatar; replace the whole div with <img src="photo.jpg" width="150" height="185" alt="Anas Elghoudane"> -->
-    <div class="photo">
-      <svg viewBox="0 0 150 185" width="150" height="185" role="img" aria-label="No profile photo">
-        <rect width="150" height="185" fill="#e9ebee"/>
-        <circle cx="75" cy="64" r="28" fill="#b4bbc6"/>
-        <ellipse cx="75" cy="140" rx="48" ry="46" fill="#b4bbc6"/>
+    <div class="who">
+      <h1>Anas Elghoudane</h1>
+      <p class="tagline">Mathematics &amp; computer science undergraduate researcher at the Université de Montréal — AI safety, world models, and machine learning for sequential decision-making.</p>
+      <nav class="links" aria-label="Profile links">
+        <a href="https://github.com/Nas01010101">GitHub</a>
+        <a href="mailto:anaselghoudane@gmail.com">Email</a>
+        <a href="https://nas01010101.github.io/clearsar-rfi-detection/">ICIP&nbsp;2026 paper</a>
+      </nav>
+    </div>
+    <!-- replace this whole SVG with <img src="photo.jpg" alt="Anas Elghoudane"> when a photo is added -->
+    <div class="avatar">
+      <svg viewBox="0 0 104 104" role="img" aria-label="Portrait placeholder">
+        <rect width="104" height="104" fill="var(--surface)"/>
+        <circle cx="52" cy="42" r="20" fill="var(--border)"/>
+        <ellipse cx="52" cy="98" rx="34" ry="32" fill="var(--border)"/>
       </svg>
     </div>
-    <h1>Anas Elghoudane</h1>
-    <p class="tagline">Mathematics and computer science undergraduate researcher at the Université de Montréal &mdash; AI safety, world models, and machine learning for sequential decision-making.</p>
   </header>
-  <hr>
 
   <main>
-    <section id="about">
+    <section id="about" aria-label="About">
       <h2>About</h2>
-      <p>I am a third-year B.Sc. student in mathematics and computer science at the Université de Montréal, doing undergraduate research in machine learning in the Department of Mathematics and Statistics. My interests center on AI safety and alignment (model organisms, evaluations, agentic misalignment), world models, and machine learning for sequential decision-making &mdash; with side threads in robotics/embodied ML and remote sensing.</p>
+      <p>I am a third-year B.Sc. student in mathematics and computer science at the Université de Montréal, doing undergraduate research in machine learning in the Department of Mathematics &amp; Statistics. My interests center on <strong>AI safety and alignment</strong> (model organisms, evaluations, agentic misalignment), <strong>world models</strong>, and machine learning for <strong>sequential decision-making</strong> — with side threads in robotics / embodied ML and remote sensing.</p>
     </section>
 
     <section id="publications">
       <h2>Publications</h2>
       <ul>
-        <li>
-          <strong>A. Elghoudane</strong>.
-          <a href="https://nas01010101.github.io/clearsar-rfi-detection/">RFI Detection in Sentinel-1 SAR Imagery via Pseudo-Label Distillation and Multi-Resolution Ensemble</a>.
-          <span class="meta">IEEE International Conference on Image Processing (ICIP), 2026 &mdash; abstract accepted, sole author. ESA ClearSAR Track&nbsp;1 Grand Challenge (AI4QC, satellite-data quality control).</span>
-          <p>Radio-frequency interference corrupts large swaths of Sentinel-1 synthetic-aperture radar imagery, and hand-labelling it at mission scale is infeasible. The method pairs pseudo-label distillation &mdash; bootstrapping supervision from an ensemble teacher instead of manual annotation &mdash; with a multi-resolution ensemble that reconciles detections across scales, giving a detector that trains without exhaustive RFI labels and stays robust on genuinely unseen scenes. <a href="https://nas01010101.github.io/clearsar-rfi-detection/">Project page</a> &middot; <a href="https://github.com/Nas01010101/clearsar-rfi-detection">Code</a>.</p>
-        </li>
-      </ul>
-    </section>
-
-    <section id="flagship">
-      <h2>Flagship project</h2>
-      <ul>
-        <li>
-          <strong>Neurodiversity-Aware Composite Guardrail for Youth Mental Health AI Safety</strong> &mdash; Mila &times; Bell &times; Buzz HPC &times; Kids Help Phone AI Safety Hackathon. Team Lead (5 people), <strong>Special Mention</strong> (top 7 of 80+ teams), $250 team prize.
-          Built an input guardrail for a youth crisis-support chatbot: a Drift Diffusion Model (turn-by-turn risk accumulation, parameters tuned for neurodivergent communication patterns) fused with a bilingual (EN/FR) multi-model LLM-as-judge ensemble, which Anas led the design of. F1&nbsp;0.850 (precision 0.871, recall 0.831) on the official test set; 61.6% pass rate on a 458-case DEI-stratified adversarial stress suite (+8.6&nbsp;pp over the prior version).
-          <p class="meta">The repository is private and stays that way: it lives in the hackathon organizers' GitHub org and touches real (synthetic but sensitive) youth crisis-support data under the event's data-handling terms.</p>
+        <li class="item">
+          <span class="lead">RFI Detection in Sentinel-1 SAR Imagery via Pseudo-Label Distillation and Multi-Resolution Ensemble</span>
+          <p class="meta">A. Elghoudane. IEEE International Conference on Image Processing (ICIP), 2026 — abstract accepted, sole author. ESA ClearSAR Track&nbsp;1 Grand Challenge (AI4QC, satellite-data quality control).</p>
+          <p>Radio-frequency interference corrupts large swaths of Sentinel-1 synthetic-aperture radar imagery, and hand-labelling it at mission scale is infeasible. The method pairs pseudo-label distillation — bootstrapping supervision from an ensemble teacher instead of manual annotation — with a multi-resolution ensemble that reconciles detections across scales, giving a detector that trains without exhaustive RFI labels and stays robust on genuinely unseen scenes.</p>
+          <div class="links">
+            <a href="https://nas01010101.github.io/clearsar-rfi-detection/">Project page</a>
+            <a href="https://github.com/Nas01010101/clearsar-rfi-detection">Code</a>
+          </div>
         </li>
       </ul>
     </section>
 
     <section id="projects">
-      <h2>Selected projects</h2>
+      <h2>Research &amp; projects</h2>
       <ul>
-        <li>
-          <strong>Foresight-Induced Instrumental Harm in LLM Agents</strong> &mdash; AI-safety "model organisms" research, working paper (in&nbsp;prep).
-          <p>Builds Sugarscape-style multi-agent survival simulations to test whether giving an LLM agent the predicted <em>consequences</em> of its candidate actions &mdash; a world-model / lookahead signal, in the spirit of Yann LeCun's critique that today's LLMs are purely reactive &mdash; changes its willingness to take a harmful-but-instrumentally-optimal action. Preliminary evidence points to the capability being emergent with model scale, and the induced harm being driven specifically by the consequence information itself.</p>
-          <p class="meta"><a href="https://github.com/Nas01010101/foresight-harm">Repository</a> (code private during review &mdash; available on request).</p>
+        <li class="item flag">
+          <span class="lead">Neurodiversity-Aware Composite Guardrail for Youth Mental-Health AI Safety</span><span class="tag">Flagship</span>
+          <p class="meta">Mila × Bell × Buzz HPC × Kids Help Phone AI Safety Hackathon — Team Lead (5); <strong>Special Mention</strong>, top 7 of 80+ teams; $250 team prize.</p>
+          <p>An input guardrail for a youth crisis-support chatbot: a Drift Diffusion Model (turn-by-turn risk accumulation, parameters tuned for neurodivergent communication patterns) fused with a bilingual (EN/FR) multi-model LLM-as-judge ensemble, whose design I led. F1&nbsp;0.850 (precision 0.871, recall 0.831) on the official test set; 61.6% pass on a 458-case DEI-stratified adversarial stress suite (+8.6&nbsp;pp over the prior version).</p>
+          <p class="meta">Code lives in the hackathon organizers' private GitHub org (it touches sensitive youth crisis-support data under the event's data-handling terms).</p>
         </li>
-        <li>
-          <strong><a href="https://github.com/Nas01010101/Brume-Quest">Brûme Quest: Le Voyage des Émotions</a></strong> &mdash; 2nd place, UdeM EduTech GameJam (18 teams).
-          <p>A 2D RPG-style web game (Phaser&nbsp;3, JavaScript) built for a game-jam brief on educational technology: help teach French to refugee children. Players journey through three worlds &mdash; a magical forest, a medieval castle, and a celestial kingdom &mdash; dispelling a fog of negative emotions while practicing French vocabulary. The team was interdisciplinary; Anas was the sole computer-science student, building the game's engine and systems.</p>
-          <p class="meta"><a href="https://nas01010101.github.io/Brume-Quest/">Play in-browser</a> &middot; <a href="https://github.com/Nas01010101/Brume-Quest">Source</a>.</p>
+        <li class="item">
+          <span class="lead">Foresight-Induced Instrumental Harm in LLM Agents</span>
+          <p class="meta">AI-safety “model organisms” research — working paper (in preparation).</p>
+          <p>Sugarscape-style multi-agent survival simulations testing whether giving an LLM agent the predicted <em>consequences</em> of its candidate actions — a world-model / lookahead signal, in the spirit of Yann LeCun's critique that today's LLMs are purely reactive — changes its willingness to take a harmful-but-instrumentally-optimal action. Preliminary evidence: the capability is emergent with model scale, and the induced harm is driven specifically by the consequence information itself.</p>
+          <div class="links"><a href="https://github.com/Nas01010101/foresight-harm">Repository</a> <span class="meta">(private during review — available on request)</span></div>
         </li>
-        <li>
-          <strong><a href="https://github.com/Nas01010101/CircuitSight">CircuitSight</a></strong> &mdash; PCB defect detection.
+        <li class="item">
+          <span class="lead">Brûme Quest: Le Voyage des Émotions</span>
+          <p class="meta">2nd place, UdeM EduTech GameJam (18 teams).</p>
+          <p>A 2D RPG-style web game (Phaser&nbsp;3, JavaScript) built for a game-jam brief on educational technology: help teach French to refugee children. Players journey through three worlds — a magical forest, a medieval castle, a celestial kingdom — dispelling a fog of negative emotions while practicing French vocabulary. As the sole computer-science student on an interdisciplinary team, I built the game's engine and systems.</p>
+          <div class="links">
+            <a href="https://nas01010101.github.io/Brume-Quest/">Play in-browser</a>
+            <a href="https://github.com/Nas01010101/Brume-Quest">Source</a>
+          </div>
+        </li>
+        <li class="item">
+          <span class="lead">AB-Detect — benchmark for effect detection in single-case AB graphs</span>
+          <p>A four-track public benchmark (SIM / PUB / GREY / CLIN) with human-expert gold labels, measuring the sim-to-real collapse and publication-bias inflation that a single synthetic test can't see.</p>
+          <div class="links"><a href="https://github.com/Nas01010101/ab-detection-benchmark">Repository</a></div>
+        </li>
+        <li class="item">
+          <span class="lead">CircuitSight — PCB defect detection</span>
           <p>A computer-vision system that detects manufacturing defects on printed circuit boards: a YOLOv8 detector paired with a FastAPI service designed to sit on a production line.</p>
+          <div class="links"><a href="https://github.com/Nas01010101/CircuitSight">Repository</a></div>
         </li>
-        <li>
-          <strong>NASA Space Apps Challenge</strong> &mdash; exoplanet-candidate classification.
+        <li class="item">
+          <span class="lead">NASA Space Apps Challenge — exoplanet-candidate classification</span>
           <p>Automated classification of exoplanet candidates from open space-agency data, built for the global NASA hackathon.</p>
-          <p class="meta"><a href="https://github.com/Nas01010101/NASA-Space-Apps-Challenge-2025">Repository</a>.</p>
+          <div class="links"><a href="https://github.com/Nas01010101/NASA-Space-Apps-Challenge-2025">Repository</a></div>
         </li>
-        <li>
-          <strong>AGIBOT World Challenge 2026</strong> &mdash; Reasoning-to-Action, ICRA&nbsp;2026.
-          <p>A robot-manipulation competition on bimanual tasks with the G2 robot in the Genie&nbsp;Sim simulator. Fine-tuned the ACoT-VLA vision-language-action baseline using LoRA, trained on TPUs.</p>
-          <p class="meta">Competition repository is private.</p>
+        <li class="item">
+          <span class="lead">AGIBOT World Challenge 2026 — Reasoning-to-Action (ICRA 2026)</span>
+          <p>A robot-manipulation competition on bimanual tasks with the G2 robot in the Genie&nbsp;Sim simulator. Fine-tuned the ACoT-VLA vision-language-action baseline with LoRA, trained on TPUs. <span class="meta">Competition repository is private.</span></p>
         </li>
       </ul>
     </section>
 
-    <section id="current">
-      <h2>Current work</h2>
+    <section id="experience">
+      <h2>Experience</h2>
       <ul>
-        <li><strong>Biostatistics Intern</strong>, CHUM Research Center (CRCHUM) — supervised by Dre Ariane Godbout, MD, FRCPC and Emmanuel Marier-Tétrault, IPSSA, PhD. Multilevel (linear/Poisson) regression on repeated-measures glycemic data for a quasi-experimental study evaluating a pharmacist&ndash;nurse intervention against intrahospital hypo-/hyperglycemia. <span class="meta">Jul 2026&ndash;present.</span></li>
-        <li><strong>Quantitative Research Assistant</strong>, Université de Montréal — supervised by Prof. Arnaud Duhoux (Biostatistics, Faculty of Nursing). Data cleaning, descriptive statistics, and reproducible R reporting for a study on specialized nurse practitioner (IPS) practices. <span class="meta">Feb 2026&ndash;present.</span></li>
-        <li><strong>Full-Stack Developer (Research Assistant)</strong>, Université de Montréal — supervised by Prof. Neerusha Baurhoo Gokool (Faculty of Education). Front-end and back-end of an early-alert, student-retention web app with LLM-generated recommendations for first-year CEGEP students. <span class="meta">Mar 2026&ndash;present.</span></li>
-        <li><strong>Research Intern, Machine Learning</strong>, Applied Behavioural Research Laboratory — supervised by Prof. Marc Lanovaz (BCBA-D, School of Psychoeducation). ML models detecting treatment effects in single-case experimental design (SCED) data, benchmarked against visual analysis and the dual-criteria method. <span class="meta">May&ndash;Jul 2026.</span></li>
-      </ul>
-    </section>
-
-    <section id="benchmarks">
-      <h2>Benchmarks</h2>
-      <ul>
-        <li><a href="https://github.com/Nas01010101/ab-detection-benchmark">AB-Detect</a>: a four-track public benchmark (SIM/PUB/GREY/CLIN) for automated effect detection in single-case AB graphs, with human-expert gold labels. Measures sim-to-real collapse and publication-bias inflation that a single synthetic test can't see.</li>
+        <li class="item"><span class="lead">Biostatistics Intern</span> — CHUM Research Center (CRCHUM), supervised by Dre Ariane Godbout, MD, FRCPC and Emmanuel Marier-Tétrault, IPSSA, PhD. <span class="meta">Jul 2026–present.</span><p>Multilevel (linear / Poisson) regression on repeated-measures glycemic data for a quasi-experimental study of a pharmacist–nurse intervention against intrahospital hypo-/hyperglycemia.</p></li>
+        <li class="item"><span class="lead">Quantitative Research Assistant</span> — Université de Montréal, supervised by Prof. Arnaud Duhoux (Biostatistics, Faculty of Nursing). <span class="meta">Feb 2026–present.</span><p>Data cleaning, descriptive statistics, and reproducible R reporting for a study on specialized nurse-practitioner (IPS) practices.</p></li>
+        <li class="item"><span class="lead">Full-Stack Developer (Research Assistant)</span> — Université de Montréal, supervised by Prof. Neerusha Baurhoo Gokool (Faculty of Education). <span class="meta">Mar 2026–present.</span><p>Front-end and back-end of an early-alert, student-retention web app with LLM-generated recommendations for first-year CEGEP students.</p></li>
+        <li class="item"><span class="lead">Research Intern, Machine Learning</span> — Applied Behavioural Research Laboratory, supervised by Prof. Marc Lanovaz (BCBA-D, School of Psychoeducation). <span class="meta">May–Jul 2026.</span><p>ML models detecting treatment effects in single-case experimental design (SCED) data, benchmarked against visual analysis and the dual-criteria method.</p></li>
       </ul>
     </section>
 
     <section id="opensource">
-      <h2>Open-source contributions</h2>
-      <p class="meta">Merged fixes in major upstream libraries.</p>
+      <h2>Open source</h2>
+      <p class="meta" style="margin-bottom:var(--s4)">Merged fixes in major upstream libraries.</p>
       <ul>
-        <li><strong>Google DeepMind</strong> &mdash; <a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">mujoco</a> (finite-difference optimizer bug) and <a href="https://github.com/google-deepmind/dm_pix/pull/112">dm_pix</a> (channel-axis handling in <code>pad_to_size</code>).</li>
-        <li><strong>NVIDIA</strong> &mdash; <a href="https://github.com/NVIDIA/warp/pull/1595">warp</a> (fp16 optimizer-state corruption in Adam); <strong>Huawei Noah's Ark</strong> &mdash; <a href="https://github.com/huawei-noah/trustworthyAI/pull/193">trustworthyAI</a> (causal-discovery metric, TPR&nbsp;&gt;&nbsp;1.0).</li>
-        <li><strong>OpenClaw</strong> &mdash; <a href="https://github.com/openclaw/openclaw/pulls?q=is:pr+author:Nas01010101">openclaw</a> (4 PRs): context-budget handling, session-data alignment, Telegram Unicode chunking, cron retry logic.</li>
+        <li class="item"><strong>Google DeepMind</strong> — <a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">mujoco</a> (finite-difference optimizer bug) and <a href="https://github.com/google-deepmind/dm_pix/pull/112">dm_pix</a> (channel-axis handling in <code>pad_to_size</code>).</li>
+        <li class="item"><strong>NVIDIA</strong> — <a href="https://github.com/NVIDIA/warp/pull/1595">warp</a> (fp16 optimizer-state corruption in Adam); &nbsp;<strong>Huawei Noah's Ark</strong> — <a href="https://github.com/huawei-noah/trustworthyAI/pull/193">trustworthyAI</a> (causal-discovery metric, TPR&nbsp;&gt;&nbsp;1.0).</li>
+        <li class="item"><strong>OpenClaw</strong> — <a href="https://github.com/openclaw/openclaw/pulls?q=is%3Apr+author%3ANas01010101">openclaw</a> (4 PRs: context-budget handling, session-data alignment, Telegram Unicode chunking, cron retry logic).</li>
       </ul>
-      <p>Additional contributions &mdash; bug reports, pull requests, and code review &mdash; across <code>jax</code>, <code>diffusers</code>, <code>pytorch-lightning</code>, <code>sglang</code>, <a href="https://github.com/QwenLM/Qwen-Agent/pull/883">Qwen-Agent</a>, <code>HEBO</code>, <code>penzai</code>, <code>fsspec</code>, and Anthropic <code>claude-quickstarts</code>.</p>
+      <p style="margin-top:var(--s4)">Additional contributions — bug reports, pull requests, and code review — across
+        <a href="https://github.com/jax-ml/jax/pull/38631">jax</a>,
+        <a href="https://github.com/huggingface/diffusers/pull/14026">diffusers</a>,
+        <a href="https://github.com/Lightning-AI/pytorch-lightning/pull/21769">pytorch-lightning</a>,
+        <a href="https://github.com/sgl-project/sglang/pull/26150">sglang</a>,
+        <a href="https://github.com/QwenLM/Qwen-Agent/pull/883">Qwen-Agent</a>,
+        <a href="https://github.com/huawei-noah/HEBO/pull/122">HEBO</a>,
+        <a href="https://github.com/google-deepmind/penzai/pull/138">penzai</a>,
+        <a href="https://github.com/fsspec/filesystem_spec/pull/2055">fsspec</a>, and
+        <a href="https://github.com/anthropics/claude-quickstarts/pull/416">Anthropic claude-quickstarts</a>.</p>
     </section>
   </main>
 
-  <hr>
   <footer>
-    <p><a href="https://github.com/Nas01010101">GitHub</a> &middot; <a href="mailto:anaselghoudane@gmail.com">anaselghoudane@gmail.com</a></p>
-    <p>Last updated 2026. <a href="https://github.com/Nas01010101/nas01010101.github.io">Source</a>.</p>
+    <span>© 2026 Anas Elghoudane</span>
+    <span><a href="https://github.com/Nas01010101/nas01010101.github.io">Source</a></span>
   </footer>
 </body>
 </html>
