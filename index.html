@@ -60,7 +60,49 @@
         <li>
           <strong>A. Elghoudane</strong>.
           <a href="https://nas01010101.github.io/clearsar-rfi-detection/">RFI Detection in Sentinel-1 SAR Imagery via Pseudo-Label Distillation and Multi-Resolution Ensemble</a>.
-          <span class="meta">IEEE International Conference on Image Processing (ICIP), 2026. Accepted, sole author. ESA ClearSAR Track 1 Grand Challenge.</span>
+          <span class="meta">IEEE International Conference on Image Processing (ICIP), 2026. Abstract accepted, sole author. Built for the ESA ClearSAR Track 1 Grand Challenge.</span>
+          <p>Detects radio-frequency interference contaminating Sentinel-1 synthetic-aperture radar imagery, combining pseudo-label distillation with a multi-resolution ensemble so the detector can be trained without exhaustive manual RFI labels. <a href="https://github.com/Nas01010101/clearsar-rfi-detection">Code</a>.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section id="flagship">
+      <h2>Flagship project</h2>
+      <ul>
+        <li>
+          <strong>Neurodiversity-Aware Composite Guardrail for Youth Mental Health AI Safety</strong> &mdash; Mila &times; Bell &times; Buzz HPC &times; Kids Help Phone AI Safety Hackathon. Team Lead (5 people), <strong>Special Recognition</strong> (top team of 80), $250 team prize.
+          Built an input guardrail for a youth crisis-support chatbot: a Drift Diffusion Model (turn-by-turn risk accumulation, parameters tuned for neurodivergent communication patterns) fused with a bilingual (EN/FR) multi-model LLM-as-judge ensemble, which Anas led the design of. F1&nbsp;0.850 (precision 0.871, recall 0.831) on the official test set; 61.6% pass rate on a 458-case DEI-stratified adversarial stress suite (+8.6&nbsp;pp over the prior version).
+          <p class="meta">The repository is private and stays that way: it lives in the hackathon organizers' GitHub org and touches real (synthetic but sensitive) youth crisis-support data under the event's data-handling terms.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section id="projects">
+      <h2>Selected projects</h2>
+      <ul>
+        <li>
+          <strong>Foresight-Induced Instrumental Harm in LLM Agents</strong> &mdash; AI-safety "model organisms" research, working paper (in&nbsp;prep).
+          <p>Builds Sugarscape-style multi-agent survival simulations to test whether giving an LLM agent the predicted <em>consequences</em> of its candidate actions &mdash; a world-model / lookahead signal, in the spirit of Yann LeCun's critique that today's LLMs are purely reactive &mdash; changes its willingness to take a harmful-but-instrumentally-optimal action. Preliminary evidence points to the capability being emergent with model scale, and the induced harm being driven specifically by the consequence information itself.</p>
+          <p class="meta"><a href="https://github.com/Nas01010101/foresight-harm">Repository</a> (code private during review &mdash; available on request).</p>
+        </li>
+        <li>
+          <strong><a href="https://github.com/Nas01010101/Brume-Quest">Brûme Quest: Le Voyage des Émotions</a></strong> &mdash; 2nd place, UdeM EduTech GameJam (18 teams).
+          <p>A 2D RPG-style web game (Phaser&nbsp;3, JavaScript) built for a game-jam brief on educational technology: help teach French to refugee children. Players journey through three worlds &mdash; a magical forest, a medieval castle, and a celestial kingdom &mdash; dispelling a fog of negative emotions while practicing French vocabulary. The team was interdisciplinary; Anas was the sole computer-science student, building the game's engine and systems.</p>
+          <p class="meta"><a href="https://nas01010101.github.io/Brume-Quest/">Play in-browser</a> &middot; <a href="https://github.com/Nas01010101/Brume-Quest">Source</a>.</p>
+        </li>
+        <li>
+          <strong><a href="https://github.com/Nas01010101/CircuitSight">CircuitSight</a></strong> &mdash; PCB defect detection.
+          <p>A computer-vision system that detects manufacturing defects on printed circuit boards: a YOLOv8 detector paired with a FastAPI service designed to sit on a production line.</p>
+        </li>
+        <li>
+          <strong>NASA Space Apps Challenge</strong> &mdash; exoplanet-candidate classification.
+          <p>Automated classification of exoplanet candidates from open space-agency data, built for the global NASA hackathon.</p>
+          <p class="meta"><a href="https://github.com/Nas01010101/NASA-Space-Apps-Challenge-2025">NASA-Space-Apps-Challenge-2025</a> &middot; <a href="https://github.com/Nas01010101/sat-collision-risk-visualizer">sat-collision-risk-visualizer</a> <span class="note">(repositories currently private)</span>.</p>
+        </li>
+        <li>
+          <strong>AGIBOT World Challenge 2026</strong> &mdash; Reasoning-to-Action, ICRA&nbsp;2026.
+          <p>A robot-manipulation competition on bimanual tasks with the G2 robot in the Genie&nbsp;Sim simulator. Fine-tuned the ACoT-VLA vision-language-action baseline using LoRA, trained on TPUs.</p>
+          <p class="meta">Competition repository is private.</p>
         </li>
       </ul>
     </section>
@@ -72,6 +114,13 @@
         <li><strong>Quantitative Research Assistant</strong>, Université de Montréal — supervised by Prof. Arnaud Duhoux (Biostatistics, Faculty of Nursing). Data cleaning, descriptive statistics, and reproducible R reporting for a study on specialized nurse practitioner (IPS) practices. <span class="meta">Feb 2026&ndash;present.</span></li>
         <li><strong>Full-Stack Developer (Research Assistant)</strong>, Université de Montréal — supervised by Prof. Neerusha Baurhoo Gokool (Faculty of Education). Front-end and back-end of an early-alert, student-retention web app with LLM-generated recommendations for first-year CEGEP students. <span class="meta">Mar 2026&ndash;present.</span></li>
         <li><strong>Research Intern, Machine Learning</strong>, Applied Behavioural Research Laboratory — supervised by Prof. Marc Lanovaz (BCBA-D, School of Psychoeducation). ML models detecting treatment effects in single-case experimental design (SCED) data, benchmarked against visual analysis and the dual-criteria method. <span class="meta">May&ndash;Jul 2026.</span></li>
+      </ul>
+    </section>
+
+    <section id="benchmarks">
+      <h2>Benchmarks</h2>
+      <ul>
+        <li><a href="https://github.com/Nas01010101/ab-detection-benchmark">AB-Detect</a>: a four-track public benchmark (SIM/PUB/GREY/CLIN) for automated effect detection in single-case AB graphs, with human-expert gold labels. Measures sim-to-real collapse and publication-bias inflation that a single synthetic test can't see.</li>
       </ul>
     </section>
 
