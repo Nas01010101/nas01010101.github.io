@@ -60,8 +60,8 @@
         <li>
           <strong>A. Elghoudane</strong>.
           <a href="https://nas01010101.github.io/clearsar-rfi-detection/">RFI Detection in Sentinel-1 SAR Imagery via Pseudo-Label Distillation and Multi-Resolution Ensemble</a>.
-          <span class="meta">IEEE International Conference on Image Processing (ICIP), 2026. Abstract accepted, sole author. Built for the ESA ClearSAR Track 1 Grand Challenge.</span>
-          <p>Detects radio-frequency interference contaminating Sentinel-1 synthetic-aperture radar imagery, combining pseudo-label distillation with a multi-resolution ensemble so the detector can be trained without exhaustive manual RFI labels. <a href="https://github.com/Nas01010101/clearsar-rfi-detection">Code</a>.</p>
+          <span class="meta">IEEE International Conference on Image Processing (ICIP), 2026 &mdash; abstract accepted, sole author. ESA ClearSAR Track&nbsp;1 Grand Challenge (AI4QC, satellite-data quality control).</span>
+          <p>Radio-frequency interference corrupts large swaths of Sentinel-1 synthetic-aperture radar imagery, and hand-labelling it at mission scale is infeasible. The method pairs pseudo-label distillation &mdash; bootstrapping supervision from an ensemble teacher instead of manual annotation &mdash; with a multi-resolution ensemble that reconciles detections across scales, giving a detector that trains without exhaustive RFI labels and stays robust on genuinely unseen scenes. <a href="https://nas01010101.github.io/clearsar-rfi-detection/">Project page</a> &middot; <a href="https://github.com/Nas01010101/clearsar-rfi-detection">Code</a>.</p>
         </li>
       </ul>
     </section>
@@ -129,10 +129,10 @@
       <p class="meta">Merged fixes in major upstream libraries.</p>
       <ul>
         <li><strong>Google DeepMind</strong> &mdash; <a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">mujoco</a> (finite-difference optimizer bug) and <a href="https://github.com/google-deepmind/dm_pix/pull/112">dm_pix</a> (channel-axis handling in <code>pad_to_size</code>).</li>
-        <li><strong>NVIDIA</strong> &mdash; <a href="https://github.com/NVIDIA/warp/pull/1595">warp</a> (fp16 optimizer-state corruption in Adam); <strong>Huawei Noah's Ark</strong> &mdash; <a href="https://github.com/huawei-noah/trustworthyAI/pull/193">trustworthyAI</a> (causal-discovery metric, TPR&nbsp;&gt;&nbsp;1.0); <strong>Alibaba</strong> &mdash; <a href="https://github.com/QwenLM/Qwen-Agent/pull/883">Qwen-Agent</a> (tool-schema validation).</li>
+        <li><strong>NVIDIA</strong> &mdash; <a href="https://github.com/NVIDIA/warp/pull/1595">warp</a> (fp16 optimizer-state corruption in Adam); <strong>Huawei Noah's Ark</strong> &mdash; <a href="https://github.com/huawei-noah/trustworthyAI/pull/193">trustworthyAI</a> (causal-discovery metric, TPR&nbsp;&gt;&nbsp;1.0).</li>
         <li><strong>OpenClaw</strong> &mdash; <a href="https://github.com/openclaw/openclaw/pulls?q=is:pr+author:Nas01010101">openclaw</a> (4 PRs): context-budget handling, session-data alignment, Telegram Unicode chunking, cron retry logic.</li>
       </ul>
-      <p>Also bug reports and code review &mdash; reproducible issues and PRs under review &mdash; across <code>jax</code>, <code>diffusers</code>, <code>pytorch-lightning</code>, <code>sglang</code>, <code>HEBO</code>, <code>penzai</code>, <code>fsspec</code>, and Anthropic <code>claude-quickstarts</code>.</p>
+      <p>Also bug reports and code review &mdash; reproducible issues and PRs under review &mdash; across <code>jax</code>, <code>diffusers</code>, <code>pytorch-lightning</code>, <code>sglang</code>, <a href="https://github.com/QwenLM/Qwen-Agent/pull/883">Qwen-Agent</a>, <code>HEBO</code>, <code>penzai</code>, <code>fsspec</code>, and Anthropic <code>claude-quickstarts</code>.</p>
     </section>
   </main>
 
