@@ -232,11 +232,12 @@
 
         <section id="opensource">
           <h2>Open source</h2>
-          <p class="meta" style="margin-bottom:var(--s4)">Merged fixes in major upstream libraries.</p>
+          <p class="meta" style="margin-bottom:var(--s4)">Merged into major upstream ML &amp; LLM libraries — optimizer internals, numerical methods, performance features, and correctness.</p>
           <ul>
-            <li class="item"><strong>Google DeepMind</strong> — <a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">mujoco</a> (finite-difference optimizer bug) and <a href="https://github.com/google-deepmind/dm_pix/pull/112">dm_pix</a> (channel-axis handling in <code>pad_to_size</code>).</li>
-            <li class="item"><strong>NVIDIA</strong> — <a href="https://github.com/NVIDIA/warp/pull/1595">warp</a> (fp16 optimizer-state corruption in Adam); &nbsp;<strong>Huawei Noah's Ark</strong> — <a href="https://github.com/huawei-noah/trustworthyAI/pull/193">trustworthyAI</a> (causal-discovery metric, TPR&nbsp;&gt;&nbsp;1.0).</li>
-            <li class="item"><strong>OpenClaw</strong> — <a href="https://github.com/openclaw/openclaw/pulls?q=is%3Apr+author%3ANas01010101">openclaw</a> (4 PRs: context-budget handling, session-data alignment, Telegram Unicode chunking, cron retry logic).</li>
+            <li class="item"><strong>Google DeepMind</strong> — <a href="https://github.com/google-deepmind/mujoco/commit/55c6332f207b5ff2a67addfb3b606570791da8f2">mujoco</a> (corrected the finite-difference step-direction in the bounded-Jacobian solver; landed in <code>main</code> via Copybara) and <a href="https://github.com/google-deepmind/dm_pix/pull/112">dm_pix</a> (channel-axis handling in <code>pad_to_size</code>).</li>
+            <li class="item"><strong>NVIDIA</strong> — <a href="https://github.com/NVIDIA/warp/pull/1595">warp</a> (preserved fp16 Adam optimizer state — <code>set_params</code> was discarding the fp32 moment buffers); &nbsp;<strong>Huawei Noah's Ark</strong> — <a href="https://github.com/huawei-noah/trustworthyAI/pull/193">trustworthyAI</a> (causal-discovery metric reporting TPR&nbsp;&gt;&nbsp;1.0).</li>
+            <li class="item"><strong>Alibaba</strong> — <a href="https://github.com/modelscope/ms-swift/pull/9680">ms-swift</a> (exposed <code>optimizer_cuda_graph</code> for CUDA-graph optimizer execution) and <a href="https://github.com/QwenLM/qwen-code/pulls?q=is%3Apr+author%3ANas01010101+is%3Amerged">qwen-code</a> (2 merged: request-timeout semantics, @-file read caching).</li>
+            <li class="item"><strong>OpenClaw</strong> — <a href="https://github.com/openclaw/openclaw/pulls?q=is%3Apr+author%3ANas01010101">openclaw</a> (4 merged: Telegram UTF-16 chunking, session media-array alignment, transient-error retry scoping, context-budget bound).</li>
           </ul>
           <p style="margin-top:var(--s4)">Additional contributions — bug reports, pull requests, and code review — across
             <a href="https://github.com/jax-ml/jax/pull/38631">jax</a>,
