@@ -11,20 +11,26 @@ async (page) => {
   const sizes = [[280,653],[320,568],[320,640],[360,740],[390,844],[430,932],[568,320],[667,375],[844,390],[932,430],[600,960],[768,1024],[820,1180],[1024,768],[1024,1366],[1280,600],[1280,800],[1440,900],[1920,1080],[2560,1440],[3440,1440],[900,500],[1000,1100]];
   const probe = () => {
     const rect = el => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top + scrollY, r: r.right, b: r.bottom + scrollY }; };
-    const copy = rect(document.getElementById('copy')), note = rect(document.getElementById('note')), read = rect(document.getElementById('reading')), today = rect(document.getElementById('today')), link = rect(document.getElementById('what'));
-    const ink = [...document.querySelectorAll('#copy .t, #note .t, #reading .t, #today .t, #what .t')].map(e => e.getBoundingClientRect()).filter(r => r.width);
+    const copy = rect(document.getElementById('copy')), note = rect(document.getElementById('note')), read = rect(document.getElementById('reading')), link = rect(document.getElementById('what'));
+    const ink = [...document.querySelectorAll('#copy .t, #note .t, #reading .t, #what .t')].map(e => e.getBoundingClientRect()).filter(r => r.width);
     const inkR = Math.max(...ink.map(r => r.right)), inkL = Math.min(...ink.map(r => r.left));
     const o = globe();
     const hit = b => { const dx = Math.max(b.l - o.x, 0, o.x - b.r), dy = Math.max(b.t - o.y, 0, o.y - b.b); return Math.hypot(dx, dy) < o.R * RIM - 1; };
     const over = (a, b) => !(a.r <= b.l || b.r <= a.l || a.b <= b.t || b.b <= a.t);
     const readInk = rect(document.querySelector('#reading .split'));
+    const heads = [...document.querySelectorAll('#copy th .t')].map(e => e.getBoundingClientRect());
     return {
+      headGap: Math.min(...heads.slice(1).map((r, i) => r.left - heads[i].right)),
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       inkPast: Math.max(0, Math.round(inkR - innerWidth + 8), Math.round(8 - inkL)),
       font: parseFloat(getComputedStyle(document.documentElement).fontSize),
-      globeHitsCopy: hit(copy), globeHitsNote: hit(note), globeHitsReading: hit(read), globeHitsToday: hit(today), globeHitsLink: hit(link), copyHitsNote: over(copy, note),
-      linkHitsCopy: over(link, copy), linkHitsNote: over(link, note), linkHitsReading: over(link, read), readingHitsCopy: over(read, copy), todayHitsCopy: over(today, copy), todayHitsNote: over(today, note),
-      centred: Math.abs((read.l + read.r) / 2 - document.documentElement.clientWidth / 2) < 2, readingTop: Math.round(read.t), under: link.t >= o.y + o.R * RIM - 2, aboveEarth: Math.abs((today.l + today.r) / 2 - o.x) < 2 && today.b <= o.y - o.R * RIM + 1,
+      globeHitsCopy: hit(copy), globeHitsNote: hit(note), globeHitsReading: hit(read), globeHitsLink: hit(link), copyHitsNote: over(copy, note),
+      linkHitsCopy: over(link, copy), linkHitsReading: over(link, read), readingHitsCopy: over(read, copy),
+      centred: Math.abs((read.l + read.r) / 2 - (column.matches ? o.x : document.documentElement.clientWidth / 2)) < 2,
+      copyCentred: side.matches || Math.abs((copy.l + copy.r) / 2 - o.x) < 2,
+      gaps: column.matches ? [copy.l, o.x - o.R * RIM - copy.r, innerWidth - o.x - o.R * RIM].map(Math.round) : [],
+      noteRows: Math.round((note.b - note.t) / parseFloat(getComputedStyle(document.documentElement).lineHeight)), noteInColumn: Math.abs((note.l + note.r) / 2 - o.x) < 2 || note.r > innerWidth - 10 || note.l < 10, readingTop: Math.round(read.t), under: link.t >= o.y + o.R * RIM - 2,
+      noteText: document.getElementById('note').innerText,
       R: Math.round(o.R), offTop: o.y - o.R * RIM < -1,
       scroll: document.documentElement.scrollHeight - innerHeight,
       prStars: pr.length, clouds: !!cover,
@@ -34,21 +40,24 @@ async (page) => {
   for (const [w, h] of sizes) {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('http://127.0.0.1:8765/index.html?m=' + Date.now());
-    await page.waitForFunction(() => document.getElementById('fleet').style.visibility === '' && document.getElementById('weather').style.visibility === '' && document.getElementById('today').style.visibility === '');
+    await page.waitForFunction(() => orb && cover && document.getElementById('meteo').textContent);
     await page.waitForTimeout(50);
     const p = await page.evaluate(probe);
     const bad = [];
     if (p.overflowX > 0) bad.push('overflowX ' + p.overflowX);
     if (p.inkPast) bad.push('text within 8px of edge by ' + p.inkPast);
-    for (const k of ['globeHitsCopy', 'globeHitsNote', 'globeHitsReading', 'globeHitsToday', 'globeHitsLink', 'todayHitsCopy', 'todayHitsNote', 'copyHitsNote', 'linkHitsCopy', 'linkHitsNote', 'linkHitsReading', 'readingHitsCopy', 'offTop']) if (p[k]) bad.push(k);
+    if (p.headGap < 4) bad.push('table headers touch, gap ' + p.headGap);
+    for (const k of ['globeHitsCopy', 'globeHitsNote', 'globeHitsReading', 'globeHitsLink', 'copyHitsNote', 'linkHitsCopy', 'linkHitsReading', 'readingHitsCopy', 'offTop']) if (p[k]) bad.push(k);
     if (!p.centred) bad.push('reading not centred');
+    if (!p.copyCentred) bad.push('text not under planet');
+    if (!p.noteInColumn) bad.push('note off the planet axis');
     if (p.readingTop > 32) bad.push('reading not at top');
     if (!p.under) bad.push('link not under planet');
-    if (!p.aboveEarth) bad.push('forecast not above planet');
+    if (p.noteRows > 3 || !/Montréal .*forecast .*°C, .*% cloud/.test(p.noteText)) bad.push('note: ' + p.noteText);
     if (p.R < .18 * Math.min(w, h)) bad.push('planet small');
     if (p.prStars < 24) bad.push('only ' + p.prStars + ' stars for hover');
     if (!p.clouds) bad.push('no clouds');
-    rows.push(`${w}x${h} font=${p.font} R=${p.R} scroll=${p.scroll} ${bad.length ? 'BAD: ' + bad.join('; ') : 'ok'}`);
+    rows.push(`${w}x${h} font=${p.font} R=${p.R} scroll=${p.scroll} gaps=${p.gaps} ${bad.length ? 'BAD: ' + bad.join('; ') : 'ok'}`);
   }
 
   // Height-only resize: the backing store must follow the canvas.
@@ -61,7 +70,7 @@ async (page) => {
   // Cloud cover on screen tracks the published grid: a fully overcast and a fully clear frame.
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('http://127.0.0.1:8765/index.html?m=' + Date.now());
-  await page.waitForFunction(() => document.getElementById('weather').style.visibility === '');
+  await page.waitForFunction(() => cover);
   const cloudTrack = await page.evaluate(() => {
     const out = {};
     for (const pct of [0, 25, 50, 75, 100]) {
@@ -82,7 +91,7 @@ async (page) => {
   for (const rate of [1, 6]) {
     await cdp.send('Emulation.setCPUThrottlingRate', { rate });
     await page.goto('http://127.0.0.1:8765/index.html?m=' + Date.now());
-    await page.waitForFunction(() => document.getElementById('fleet').style.visibility === '' && document.getElementById('weather').style.visibility === '');
+    await page.waitForFunction(() => orb && cover);
     perf['x' + rate] = await page.evaluate(async () => {
       const times = [], end = performance.now() + 4000;
       let t = 40;

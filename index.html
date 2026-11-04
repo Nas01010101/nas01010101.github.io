@@ -20,16 +20,17 @@ main{position:relative;z-index:1;padding:0 16px;min-height:100vh;min-height:100s
 .t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
 #reading{width:min(100%,70ch);margin:0 auto;padding-top:16px;text-align:center}
 #reading .split{justify-content:center}
-#today{width:100%;max-width:80ch;margin:.857rem auto 0;text-align:center}
-#today .split{flex-wrap:wrap;justify-content:center;gap:0 2ch}
-#what{position:absolute;z-index:1;transform:translateX(-50%);text-align:center;white-space:nowrap}
-.hero{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:min(70vw,48vh) 0 32px;padding-top:min(70vw,48svh)}
+#what{position:absolute;z-index:1;width:max-content;transform:translateX(-50%);text-align:center}
+#note{text-wrap:balance}
+/* The top padding holds the planet and its three-line caption. */
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(min(84vw,56vh) + 3.428rem) 0 32px;padding-top:calc(min(84vw,56svh) + 3.428rem)}
 #copy{width:min(100%,39ch)}
-#note{margin-top:1.714rem}
 /* The planet sits beside the text on landscape screens and above it on portrait ones; globe() reads the same query. */
-@media (min-width:600px) and (max-aspect-ratio:999/1000){html{font-size:16px}.hero{padding-left:8vw}}
-@media (min-width:560px) and (min-aspect-ratio:1/1){.hero{justify-content:center;padding:32px 0}}
-@media (min-width:760px) and (min-aspect-ratio:1/1){html{font-size:clamp(14px,min(.8vw,1.8vh),20px)}.hero{position:relative;padding-left:8vw}#note{position:absolute;right:32px;bottom:32px;margin:0;text-align:right}}
+@media (min-width:600px) and (max-aspect-ratio:999/1000){html{font-size:16px}}
+@media (min-width:560px) and (min-aspect-ratio:1/1){.hero{align-items:flex-start;justify-content:center;padding:32px 0}}
+@media (min-width:760px) and (min-aspect-ratio:1/1){html{font-size:clamp(14px,min(.8vw,1.8vh),20px)}/* Margin, text, gap, planet, margin: the three gaps come out equal while the planet is .19 of the width. */
+.hero{padding-left:max(16px,calc(19.4vw - 13ch - 16px))}
+#reading{position:absolute;top:0;width:auto;max-width:70ch;margin:0;padding-top:32px;transform:translateX(-50%)}}
 h1{margin:0;font:inherit}
 p{margin:0}
 .m{color:var(--muted)}
@@ -42,7 +43,7 @@ th,td{padding:0;font:inherit;text-align:left;white-space:nowrap}
 tr>:last-child{text-align:right}
 .roles{width:auto}
 .roles td:last-child{text-align:left}
-.num{width:7ch;text-align:right}
+.num{width:7ch;padding-left:1ch;text-align:right}
 .split{display:flex;justify-content:space-between;gap:16px}
 .role{width:16ch}
 a{color:var(--fg);text-decoration:none;white-space:nowrap}
@@ -63,13 +64,10 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
     <p><span class="t"><a class="title" href="https://arxiv.org/abs/2410.19964">Understanding Adam Requires Better Rotation Dependent Assumptions</a></span></p>
     <p><span class="t m">NeurIPS 2025, coauthored by my</span> <span class="t"><a href="https://mitliagkas.github.io/ml-class-fr">IFT3395</a></span> <span class="t m">teacher Ioannis Mitliagkas</span></p>
   </div>
-  <!-- Filled from forecast.json. The text here only reserves the height until it arrives. -->
-  <div id="today" style="visibility:hidden">
-    <p><span class="t" id="today-head">model forecast for today</span></p>
-    <p class="split"><span class="t m" id="today-global">global --% cloud, --°C</span><span class="t m" id="today-place"><span class="here">+</span> <span id="today-here">near Montreal --% cloud, --°C</span></span></p>
-    <p class="split"><span class="t m" id="today-week">7 day error vs persistence</span><span class="t m" id="today-cloud">cloud -- vs -- points</span><span class="t m" id="today-temp">temp -- vs --°C</span><span class="t m" id="today-sats" hidden></span></p>
+  <div id="what">
+    <p><span class="t" aria-hidden="true">↑</span><br><span class="t"><a href="flow.html">what am i seeing here</a></span></p>
+    <p id="note"><span class="t m"><span class="here">+</span> <span id="status">Montréal</span><span id="meteo"></span></span></p>
   </div>
-  <p id="what"><span class="t" aria-hidden="true">↑</span><br><span class="t"><a href="flow.html">what am i seeing here</a></span></p>
   <div class="hero">
     <div id="copy">
       <h1><span class="t">nas</span></h1>
@@ -93,10 +91,6 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
       </table>
       <p class="split"><span class="t">active in</span><span class="t m">as of 2026-11-04</span></p>
       <p><span class="t"><a href="https://github.com/google-deepmind/formal-conjectures/pulls?q=is%3Apr+author%3ANas01010101">formal-conjectures</a></span> <span class="t"><a href="https://github.com/pytorch/rl/pulls?q=is%3Apr+author%3ANas01010101">rl</a></span> <span class="t"><a href="https://github.com/huggingface/lerobot/pulls?q=is%3Apr+author%3ANas01010101">lerobot</a></span> <span class="t"><a href="https://github.com/google-deepmind/mujoco_warp/pulls?q=is%3Apr+author%3ANas01010101">mujoco_warp</a></span> <span class="t"><a href="https://github.com/google-deepmind/gemma/pulls?q=is%3Apr+author%3ANas01010101">gemma</a></span> <span class="t"><a href="https://github.com/NVIDIA/DALI/pulls?q=is%3Apr+author%3ANas01010101">DALI</a></span> <span class="t"><a href="https://github.com/deepseek-ai/DeepSpec/pulls?q=is%3Apr+author%3ANas01010101">DeepSpec</a></span></p>
-    </div>    <div id="note">
-      <p><span class="t m"><span class="here">+</span> <span id="status">Montréal</span></span></p>
-      <p id="fleet" style="visibility:hidden"><span class="t m"><span id="count">16,844</span> active satellites</span> <span class="t"><a href="https://celestrak.org/NORAD/elements/">CelesTrak</a></span></p>
-      <p id="weather" style="visibility:hidden"><span class="t m">clouds and rain</span> <span class="t"><a href="https://open-meteo.com/">Open-Meteo</a></span></p>
     </div>
   </div>
 </main>
@@ -189,10 +183,18 @@ const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const lit = new Set();
 let pr = [], cols, rows, cwD, chD, cw, ch, atlas, g, c, pg, pc, stars = [], W = 0, H = 0, dpr = 0, place, boxes;
 
-const copy = document.getElementById('copy'), note = document.getElementById('note'), reading = document.getElementById('reading'), today = document.getElementById('today'), what = document.getElementById('what');
+const copy = document.getElementById('copy'), reading = document.getElementById('reading'), what = document.getElementById('what');
 const side = matchMedia('(min-width:560px) and (min-aspect-ratio:1/1)');
+const column = matchMedia('(min-width:760px) and (min-aspect-ratio:1/1)');
 const scale = () => Math.min(devicePixelRatio || 1, 2);
-const planetX = () => (side.matches ? Math.max(W * .72, (copy.getBoundingClientRect().right + W) / 2) : W / 2);
+const planetX = () => (side.matches ? (copy.getBoundingClientRect().right + W) / 2 : W / 2);
+// Beside the text, the planet's caption and on larger screens the reading stay in the planet's column.
+function fitColumn() {
+  const x = planetX(), width = side.matches ? 2 * Math.min(x - copy.getBoundingClientRect().right - 8, W - x - 8) : W - 32;
+  what.style.maxWidth = `${width}px`;
+  reading.style.left = column.matches ? `${x}px` : '';
+  reading.style.width = column.matches ? `${width}px` : '';
+}
 function build() {
   const size = cv.getBoundingClientRect();
   W = size.width; H = size.height; dpr = scale();
@@ -216,14 +218,11 @@ function build() {
   g = new Int16Array(n); c = new Uint8Array(n); pg = new Int16Array(n).fill(-1); pc = new Uint8Array(n);
   // Margin covers a glint's arms, so nothing pokes out from behind a line of text.
   const mx = cw * 3, my = ch * 2;
-  // The forecast sits straight above the planet, no wider than the sky on the planet's far side.
-  const x = planetX();
-  today.style.width = side.matches ? `${2 * (W - x - 16)}px` : '';
-  today.style.transform = side.matches ? `translateX(${x - W / 2}px)` : '';
+  fitColumn();
   place = globe();
   what.style.left = `${Math.max(what.offsetWidth / 2 + 8, Math.min(W - what.offsetWidth / 2 - 8, place.x))}px`;
   what.style.top = `${place.y + place.R * RIM}px`;
-  boxes = [copy, note, reading, today, what].filter(el => !el.hidden).map(el => { const r = el.getBoundingClientRect(); return { l: r.left - mx, r: r.right + mx, t: r.top + scrollY - my, b: r.bottom + scrollY + my }; });
+  boxes = [copy, reading, what].filter(el => !el.hidden).map(el => { const r = el.getBoundingClientRect(); return { l: r.left - mx, r: r.right + mx, t: r.top + scrollY - my, b: r.bottom + scrollY + my }; });
   // Counted by area. Text and planet cover most of a phone screen, so phones need more candidates to show any.
   stars = Array.from({ length: Math.round(W * H / (W < 700 ? 6600 : 23040)) }, (_, i) => ({
     x: hash(i, 1, 9), y: hash(i, 2, 8), b: hash(i, 7, 1), ph: hash(i, 4, 6) * 6.28, sp: .4 + 1.4 * hash(i, 5, 5),
@@ -259,13 +258,13 @@ function drawStars(t) {
   }
 }
 function globe() {
-  const text = copy.getBoundingClientRect(), top = text.top + scrollY, head = Math.max(0, ...[reading, today].filter(el => !el.hidden).map(el => el.getBoundingClientRect().bottom + scrollY));
+  const text = copy.getBoundingClientRect(), top = text.top + scrollY, head = reading.hidden ? 0 : reading.getBoundingClientRect().bottom + scrollY;
   // The link under the planet takes its own height out of the room.
   const link = what.offsetHeight + 4;
   if (!side.matches) { const R = Math.min(W * .34, ((top - head - link) / 2 - 8) / RIM); return { x: W / 2, y: head + 8 + R * RIM + Math.max(0, (top - head - link - 16 - 2 * R * RIM) / 2), R }; }
-  // Beside the text: under the forecast, clear of the text column and of the note when it shares this side.
-  const view = Math.min(H, Math.max(innerHeight, top + text.height)), box = note.getBoundingClientRect(), floor = box.left > text.right ? box.top + scrollY : Infinity;
-  const low = Math.min(floor, view) - link, room = low - head - 16;
+  // Beside the text: under the reading and clear of the text column.
+  const view = Math.min(H, Math.max(innerHeight, top + text.height));
+  const room = view - link - head - 16;
   const R = Math.min(W * .19, view * .35, room / 2 / RIM, (W - text.right) / 2 / RIM - 8);
   return { x: planetX(), y: head + 8 + R * RIM + Math.max(0, (room - 2 * R * RIM) / 2), R };
 }
@@ -378,34 +377,19 @@ const download = url => fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.r
 download(FORECAST + 'sats.bin').catch(() => download('sats.bin')).then(buf => {
   orb = loadOrbits(buf); pos = new Float32Array(orb.n * 3);
   orbitsAt(orb, now(), pos);
-  document.getElementById('count').textContent = orb.n.toLocaleString('en-CA').replace(/\s/g, ',');
-  document.getElementById('fleet').style.visibility = '';
   paint();
 }).catch(() => {});
 download(FORECAST + 'planet.bin').then(buf => {
   loadWeather(buf);
   showFrame(now());
-  if (cover) document.getElementById('weather').style.visibility = '';
   paint();
 }).catch(() => {});
 setInterval(() => { const had = frameShown; showFrame(now()); if (frameShown !== had) paint(); }, 6e5);
-// This is the model's forecast, not the Open-Meteo clouds drawn on the planet. A run older than yesterday shows nothing rather than an old day.
-fetch(FORECAST + 'forecast.json').then(r => (r.ok ? r.json() : Promise.reject(r.status))).then(({ weather: w, satellites: o }) => {
-  const set = (id, text) => { document.getElementById(id).textContent = text; };
-  const [{ cloud_mean, temp_mean, date, places }, { cloud, temp }] = [w.today, w.week], one = v => v.toFixed(1);
-  if (now() - Date.parse(date) > 2 * 864e5) throw new Error('old forecast');
-  set('today-head', `model forecast for ${date}`);
-  set('today-global', `global ${cloud_mean}% cloud, ${temp_mean}°C`);
-  const here = places && places.find(p => p.place.includes('Montreal'));
-  if (here) set('today-here', `${here.place} ${here.cloud}% cloud, ${here.temp}°C`);
-  document.getElementById('today-place').hidden = !here;
-  set('today-week', `${w.days.length} day error vs persistence`);
-  set('today-cloud', `cloud ${one(cloud.model)} vs ${one(cloud.persistence)} points`);
-  set('today-temp', `temp ${one(temp.model)} vs ${one(temp.persistence)}°C`);
-  const sat = o && o.horizons[0];
-  if (sat && sat.low) { set('today-sats', `satellites ${sat.low.median_km} km off, ${sat.days} day old elements`); document.getElementById('today-sats').hidden = false; }
-  today.style.visibility = '';
-}).catch(() => { today.hidden = true; }).finally(() => { build(); paint(); });
+// The model's forecast for Montréal's cell, not the Open-Meteo clouds drawn on the planet. A run older than yesterday adds nothing rather than an old day.
+fetch(FORECAST + 'forecast.json').then(r => (r.ok ? r.json() : Promise.reject(r.status))).then(({ weather: { today: { date, places } } }) => {
+  const here = places.find(p => p.place.includes('Montreal'));
+  if (here && now() - Date.parse(date) <= 2 * 864e5) document.getElementById('meteo').textContent = `, forecast ${here.temp}°C, ${here.cloud}% cloud`;
+}).catch(() => {}).finally(() => { build(); paint(); });
 // Pointing at a repo lights one star per PR merged there; the total lights all of them.
 let from = 0;
 for (const el of document.querySelectorAll('[data-prs]')) {

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>What am I seeing</title>
-<meta name="description" content="How the clouds and satellites on the planet are sourced, forecast and scored against this week's data.">
+<meta name="description" content="Where the planet's clouds and satellites come from, the forecast network and the loss of its past forecasts.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--here:#ffb347;--g0:#14512f;--g1:#1f8f55;--g2:#36d07f;--g3:#a6ffcf;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
@@ -16,7 +16,7 @@ canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0}
 main{position:relative;z-index:1;padding:32px 16px;width:min(100%,84ch);margin:0 auto}
 .t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
 h1,h2{margin:0;font:inherit}
-h2{margin-top:3.428rem}
+h2{margin:4rem 0 .857rem}
 p{margin:0}
 .m{color:var(--muted)}
 .here{color:var(--here)}
@@ -26,66 +26,54 @@ a::before{content:"["}a::after{content:"]"}
 @media (hover:hover){a:hover{background:var(--fg);color:var(--bg)}}
 a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 ::selection{background:var(--fg);color:var(--bg)}
-.flow{display:grid;gap:3.428rem;margin-top:1.714rem}
-@media (min-width:760px){html{font-size:14px}.flow{grid-template-columns:1fr 1fr;gap:2rem}}
-.flow section{container-type:inline-size;min-width:0}
-/* Equations and streams are 48 columns of about .6em, so they scale to their column. */
-.flow pre{font-size:min(1rem,calc(100cqw / 29.5))}
-.flow h3{margin:0;font:inherit;color:var(--g2)}
 .g0{color:var(--g0)}.g1{color:var(--g1)}.g2{color:var(--g2)}.g3{color:var(--g3)}
-.step.on{color:var(--g3)}
-.eq{margin:.571rem 0;color:var(--g2)}
-.strip{color:var(--g1)}
-.stream{margin:.571rem 0}
-table{width:100%;border-collapse:collapse}
-th,td{padding:0;font:inherit;font-weight:400;text-align:right;white-space:nowrap}
-th:first-child,td:first-child{text-align:left}
-tfoot td{padding-top:.857rem}
-.wide{overflow-x:auto}
-/* A map is 48 columns of about .6em each, so it scales to fit the narrowest phone. */
-pre{margin:.857rem 0 0;font:inherit;font-size:min(1rem,calc((100vw - 48px) / 30));line-height:1.1;background:var(--bg);width:max-content;max-width:100%}
-.maps{display:grid;grid-template-columns:minmax(0,1fr);gap:1.714rem;margin-top:.857rem}
-.maps>*{min-width:0;overflow-x:auto}
-@media (min-width:1000px){main{width:min(100%,120ch)}.maps{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:4ch}}
+.map{color:var(--fg)}.dim{color:#4d4d4d}.scan{background:var(--fg);color:var(--bg)}
+@media (min-width:760px){html{font-size:14px}}
+/* Each picture is --cols characters of about .6em, so it scales to its container. */
+.fit{container-type:inline-size;min-width:0}
+.fit pre{font-size:min(1rem,calc(100cqw / (var(--cols) * .615)))}
+.after{margin-top:1.714rem}
+main p{max-width:84ch}
+.foot{margin-top:4rem}
+pre{margin:.857rem 0 0;font:inherit;line-height:1.1;background:var(--bg);width:max-content;max-width:100%}
+.head p+p{margin-top:.857rem}
+#loss pre{margin-top:1.714rem}
+/* The pipeline is taller than a screen, so wide screens run it down the right with the text beside it. */
+@media (min-width:900px){main{display:grid;width:min(100%,calc(109ch + 112px));padding:32px;grid-template-columns:minmax(0,1fr) 49ch;column-gap:48px;grid-template-areas:"head pipe" "below pipe" "foot pipe";grid-template-rows:auto auto 1fr}.head{grid-area:head}.pipe{grid-area:pipe}.below{grid-area:below}.ends{grid-area:foot}.pipe h2{margin-top:0}}
 </style>
 </head>
 <body>
 <canvas id="sky" aria-hidden="true"></canvas>
 <main>
-  <p class="gap"><span class="t"><a href="./">back to the planet</a></span></p>
-  <h1 class="gap"><span class="t">what am i seeing here</span></h1>
-  <p><span class="t">The clouds and rain on the planet are the Open-Meteo forecast for this hour, on a 7.5 degree grid, not this project's model. How much of each cell is cloudy is data; the edge pattern inside a cell is drawn.</span></p>
-  <p class="gap"><span class="t">The satellites are CelesTrak's published orbits, moved to this second in your browser.</span></p>
-  <p><span class="t" id="state">loading today's run</span></p>
-  <p><span class="t"><a href="https://github.com/Nas01010101/ascii-earth-forecast">repo</a></span> <span class="t m" id="generated"></span></p>
+  <div class="head">
+    <p class="gap"><span class="t"><a href="./">back to the planet</a></span></p>
+    <h1 class="gap"><span class="t">what am i seeing here</span></h1>
+    <p><span class="t">Clouds and rain: Open-Meteo's forecast for this hour on a 7.5 degree grid. The texture inside a cell is drawn.</span></p>
+    <p><span class="t">Satellites: CelesTrak's orbits, moved to this second in your browser.</span></p>
+    <p><span class="t">Montréal forecast: the pipeline on this page.</span></p>
+    <p hidden><span class="t here" id="state"></span></p>
+    <p><span class="t"><a href="https://github.com/Nas01010101/ascii-earth-forecast">repo</a></span> <span class="t m" id="generated"></span></p>
+  </div>
 
-  <h2><span class="t">pipeline</span></h2>
-  <p><span class="t m">Each step shows the equation it runs. A narrower stream carries fewer values, and the label beside it is the array shape leaving that step. Under train, one lane per input is drawn as wide as its weight, and the lanes merge into the one value predicted for each cell.</span></p>
-  <div class="flow">
-    <section aria-label="Weather pipeline">
-      <h3><span class="t">weather</span></h3>
-      <div id="weather-flow"></div>
-    </section>
-    <section aria-label="Satellite pipeline">
-      <h3><span class="t">satellites</span></h3>
-      <div id="sat-flow"></div>
+  <section class="pipe">
+    <h2><span class="t">pipeline</span></h2>
+    <div id="pipeline" class="fit"></div>
+  </section>
+
+  <div class="below">
+    <div id="about" class="after"></div>
+    <section>
+      <h2><span class="t">loss of past forecasts</span></h2>
+      <div id="loss" class="fit"></div>
     </section>
   </div>
 
-  <h2><span class="t">weather forecast vs this week</span></h2>
-  <p><span class="t m">Mean absolute error, weighted by area. Each day is predicted using only the days before it. Persistence repeats yesterday; trailing mean averages the earlier days.</span></p>
-  <div id="weather-out" class="wide"></div>
-
-  <h2><span class="t">satellite position vs this week</span></h2>
-  <p><span class="t m">Each row moves elements published that many days ago to the epoch of today's elements and measures the distance, in km. The drift column subtracts an along-track correction fitted on yesterday's pair.</span></p>
-  <div id="sat-out" class="wide"></div>
-
-  <h2><span class="t">what "actual" means here</span></h2>
-  <p class="gap"><span class="t m">Weather: Open-Meteo's own model output for past hours, not station readings. Satellites: SGP4 run from the newest published elements, not a tracking measurement. Both carry their own error, which these scores do not include.</span></p>
-  <p><span class="t m">Weather data by</span> <span class="t"><a href="https://open-meteo.com/">Open-Meteo</a></span> <span class="t m">(CC BY 4.0). Elements by</span> <span class="t"><a href="https://celestrak.org/NORAD/elements/">CelesTrak</a></span><span class="t m">.</span></p>
+  <div class="ends">
+    <p class="foot"><span class="t m">Actuals are Open-Meteo's model output for past hours, not station readings.</span></p>
+    <p><span class="t m">Weather data by</span> <span class="t"><a href="https://open-meteo.com/">Open-Meteo</a></span> <span class="t m">(CC BY 4.0). Elements by</span> <span class="t"><a href="https://celestrak.org/NORAD/elements/">CelesTrak</a></span><span class="t m">.</span></p>
+  </div>
 </main>
 <script src="pipeline.js"></script>
-<script src="steps.js"></script>
 <script>
 'use strict';
 const DATA = 'https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/forecast.json';
@@ -93,55 +81,36 @@ const $ = id => document.getElementById(id);
 // Builds an element. Everything from the JSON goes through textContent, never as markup.
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 const line = (text, cls) => { const p = el('p'), s = el('span', 't' + (cls ? ' ' + cls : ''), text); p.append(s); return p; };
-const fmt = v => (v === undefined || v === null ? '-' : Number(v).toLocaleString('en-CA').replace(/\s/g, ','));
 
-function table(rows, foot) {
-  const t = el('table'), head = t.createTHead().insertRow();
-  for (const h of rows[0]) { const th = el('th', 'm'); th.scope = 'col'; th.append(el('span', 't', h)); head.append(th); }
-  const fill = (body, list) => { for (const r of list) { const tr = body.insertRow(); for (const v of r) tr.insertCell().append(el('span', 't', v)); } };
-  fill(t.createTBody(), rows.slice(1));
-  if (foot) fill(t.createTFoot(), foot);
-  return t;
+function about(w) {
+  const box = $('about');
+  box.replaceChildren();
+  if (!w) return;
+  box.append(line(`Only the weights are trained: ridge regression, refit daily on the past ${w.train_days} days. Temperature runs the same way.`, 'm'));
 }
-function map(name, detail, rows) {
-  const box = el('div');
-  box.append(line(name, 'here'), line(detail, 'm'), el('pre', '', rows.join('\n')));
-  return box;
-}
-function verdict(name, unit, s) {
-  const gain = (1 - s.model / Math.min(s.persistence, s.trailing_mean)) * 100, best = s.persistence <= s.trailing_mean ? 'persistence' : 'trailing mean';
-  const said = gain > 0 ? `${gain.toFixed(0)}% below ${best}` : `${(-gain).toFixed(0)}% above ${best}, so the model lost this week`;
-  return line(`${name}: ${s.model}${unit} off on average, ${said}`);
-}
-function weatherOut(w) {
-  const box = $('weather-out');
-  if (!w) { box.append(line('no scores yet', 'm')); return; }
-  const s = w.last_scored, day = w.days[w.days.length - 1].cloud;
-  box.append(line(`Newest complete day: ${s.date}. Today has no actual until it ends.`), verdict('cloud cover', ' points', w.week.cloud), verdict('temperature', ' C', w.week.temp));
-  const scores = el('div', 'maps');
-  for (const [key, label] of [['cloud', 'cloud pts'], ['temp', 'temp C']]) {
-    const rows = [[label, 'model', 'persist', 'mean']];
-    for (const d of w.days) rows.push([d.date.slice(5), d[key].model, d[key].persistence, d[key].trailing_mean]);
-    scores.append(table(rows));
+// One column per day, on an axis running from the lowest loss to the highest, because from zero every day draws the same.
+// Forecasts kept when they were made are white; replayed days are grey.
+function lossChart(rows) {
+  const values = rows.map(r => r.cloud.model), low = Math.floor(Math.min(...values)), high = Math.ceil(Math.max(...values));
+  const height = high > low ? 10 : 1, pre = el('pre'), label = Math.max(String(low).length, String(high).length);
+  const dates = rows.length > 1 ? `${rows[0].date.slice(5)}${' '.repeat(Math.max(1, rows.length * 2 - 11))}${rows[rows.length - 1].date.slice(5)}` : rows[0].date.slice(5);
+  pre.style.setProperty('--cols', label + 1 + Math.max(dates.length, rows.length * 2));
+  for (let y = height - 1; y >= 0; y--) {
+    pre.append(el('span', 'm', `${String(y === height - 1 ? high : y ? '' : low).padStart(label)} `));
+    rows.forEach(r => pre.append(el('span', r.issued ? 'map' : 'm', Math.round((r.cloud.model - low) / ((high - low) || 1) * (height - 1)) === y ? '* ' : '  ')));
+    pre.append('\n');
   }
-  box.append(scores);
-  box.append(line(' '), line(`today, ${w.today.date}: ${w.today.cloud_mean}% cloud, ${w.today.temp_mean} C global mean predicted. Tomorrow's table predicts this day again from the stored days.`));
-  const maps = el('div', 'maps');
-  box.append(line(' '), line('Maps: 48 columns by 24 rows, north up. Cloud cover runs from blank at 0% to @ at 100%.', 'm'));
-  maps.append(
-    map('predicted', `this model's cloud cover for ${s.date}`, s.forecast),
-    map('actual', `Open-Meteo's daily mean for ${s.date}`, s.actual),
-    map('error', `|predicted - actual|: ${day.model} points on average, persistence ${day.persistence}. @ is 50 or more.`, s.error),
-    map('predicted, not scored yet', `this model's cloud cover for today, ${w.today.date}`, w.today.map),
-  );
-  box.append(maps);
+  pre.append(el('span', 'm', `${' '.repeat(label)} ${dates}`));
+  return pre;
 }
-function satOut(o) {
-  const box = $('sat-out');
-  if (!o || !o.horizons.length) { box.append(line('The first comparison appears the day after the first snapshot and fills to seven days over a week.', 'm')); return; }
-  const rows = [['days old', 'low', 'drift', 'medium', 'geo', 'ISS']];
-  for (const h of o.horizons) rows.push([h.days, fmt(h.low && h.low.median_km), fmt(h.low_corrected && h.low_corrected.median_km), fmt(h.medium && h.medium.median_km), fmt(h.geostationary && h.geostationary.median_km), fmt(h.iss_km)]);
-  box.append(table(rows), line('Median across satellites. Objects that manoeuvred are included.', 'm'));
+function lossOut(w) {
+  const box = $('loss'), rows = (w && w.losses) || [];
+  box.replaceChildren();
+  if (!rows.length) { box.append(line('no scored forecasts yet', 'm')); return; }
+  const replayed = rows.filter(r => !r.issued);
+  box.append(line('Squared error per day, cloud cover, area weighted, in %².', 'm'));
+  if (replayed.length) box.append(line('Grey: replayed from stored data. White: as issued.', 'm'));
+  box.append(lossChart(rows));
 }
 function render(r) {
   const bad = Object.entries(r.status || {}).filter(([, s]) => !s.ok), age = (Date.now() - Date.parse(r.generated)) / 864e5;
@@ -149,16 +118,18 @@ function render(r) {
   // A failed source keeps its last good section, and the page says how old that is. So does a run that stopped happening.
   const said = bad.map(([n, s]) => `${n} did not update, showing ${s.updated || 'nothing yet'}`);
   if (age > 1.5) said.push(`no run for ${Math.floor(age)} days`);
-  $('state').textContent = said.length ? said.join('. ') : 'today\'s run finished';
-  flows(r);
-  weatherOut(r.weather);
-  satOut(r.satellites);
+  $('state').textContent = said.join('. ');
+  $('state').parentElement.hidden = !said.length;
+  drawPipeline($('pipeline'), r, still);
+  about(r.weather);
+  lossOut(r.weather);
 }
 fetch(DATA, { cache: 'no-cache' }).then(res => (res.ok ? res.json() : Promise.reject(res.status))).then(render).catch(() => {
   $('state').textContent = 'The pipeline has not published a run yet, or GitHub is unreachable.';
-  flows();
-  weatherOut();
-  satOut();
+  $('state').parentElement.hidden = false;
+  drawPipeline($('pipeline'), null, still);
+  about();
+  lossOut();
 });
 
 // The same sky as the planet page: dots, plus signs and a few cross glints that clear behind text.

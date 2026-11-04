@@ -1,132 +1,116 @@
 'use strict';
-// Draws one pipeline as a green stream between steps. A pulse lights each step, reads its equations,
-// then runs down the stream into the next step. Strips scroll real map rows from the published run.
-function drawPipeline(box, steps, still) {
-  const W = 48, MID = 15, RAMP = '.:-=+*#%@', STEP_SECONDS = 2.6, READ = .6, FRONT = .4, CURSOR = 2, BAND_SECONDS = 6, LANE = 7;
-  const noise = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
-  const blank = () => Array.from({ length: W }, () => [' ', '']);
-  const put = (row, x, text, cls) => [...text].forEach((c, i) => { if (x + i < W) row[x + i] = [c, cls]; });
-  const runs = (pre, rows) => pre.replaceChildren(...rows.flatMap((row, y) => {
-    const out = [];
-    let text = '', cls = row[0][1];
-    for (const [c, k] of row) { if (k !== cls && c !== ' ') { out.push([text, cls]); text = ''; cls = k; } text += c; }
-    out.push([text + (y < rows.length - 1 ? '\n' : ''), cls]);
-    return out.map(([value, k]) => { const s = document.createElement('span'); s.textContent = value; if (k) s.className = k; return s; });
-  }));
+// Draws the forecast model top to bottom, one small layer per step it computes. Only the weights are trained.
+// A scan moves down the input map; each row's own characters travel through the band that row belongs to
+// and the prediction for that row appears on the output map.
+const INPUTS = ['yest', '2d', '3d', 'N', 'S', 'E', 'W'], BAND_NAMES = ['tropics', 'mid-latitudes', 'poles'];
+const MAP_ROWS = 24, MAP_COLS = 48, ROW_SECONDS = .4, HOLD_SECONDS = 2, RATE = .9;
 
-  // One falling streak per column, brightened where the pulse is passing.
-  function streak(x, y, rows, t, front, strength = 1) {
-    const speed = 3 + 5 * noise(x, 1), length = 5 + 9 * noise(x, 2);
-    const fall = (y - t * speed + 40 * noise(x, 3)) / length, tail = fall - Math.floor(fall);
-    let v = tail * tail * strength;
-    if (front !== null && Math.abs(y - front * rows) < 1.5) v = Math.min(1, v + .75);
-    if (v < .08) return null;
-    return [RAMP[Math.floor(v * (RAMP.length - 1))], v > .7 ? 'g3' : v > .35 ? 'g2' : v > .18 ? 'g1' : 'g0'];
-  }
+// Rows run north to south on a 7.5 degree grid, with the same band limits as the model.
+const EMPTY = '. '.repeat(MAP_COLS / 2);
+const latOf = row => 90 - (row + .5) * 7.5;
+const bandOf = row => { const lat = Math.abs(latOf(row)); return lat < 30 ? 0 : lat < 60 ? 1 : 2; };
 
-  // A channel that narrows to the next stream's width and meanders.
-  function stream(part, t, front) {
-    const { pre, rows, from, to, label } = part, grid = [];
-    for (let y = 0; y < rows; y++) {
-      const row = blank(), half = (from + (to - from) * y / rows) / 2, mid = MID + Math.round(Math.sin(y * .6 - t * 1.3) * 1.5);
-      for (let x = Math.max(0, Math.round(mid - half)); x < Math.min(W, Math.round(mid + half)); x++) {
-        const glyph = streak(x, y, rows, t, front);
-        if (glyph) row[x] = glyph;
+function segment([x0, y0], [x1, y1]) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1), dx = x1 - x0, dy = y1 - y0;
+  const glyph = Math.abs(dy) * 3 < Math.abs(dx) ? '-' : Math.abs(dx) * 3 < Math.abs(dy) ? '|' : dx * dy > 0 ? '\\' : '/';
+  return { glyph, points: Array.from({ length: n + 1 }, (_, i) => [Math.round(x0 + dx * i / n), Math.round(y0 + dy * i / n)]) };
+}
+
+// Where everything sits. The layers fill the left of the map's width and their names the right.
+const Y = { input: 1, status: 25, names: 31, raw: 32, minus: 34, weight: 36, sum: 42, plus: 46, clip: 48, char: 50, head: 56, output: 57, rows: 81 };
+const LABEL_X = 36, MIDDLE = 16, BAND_X = [29, 16, 3], BAND_TEXT = [26, 10, 1];
+const nodeX = i => i * 5 + 1, rimX = i => Math.round((i + .5) * MAP_COLS / INPUTS.length);
+const LABELS = [[Y.names, 'inputs', 'm'], [Y.minus, 'minus usual', 'm'], [Y.weight, 'times weight', 'g2'], [Y.sum, 'sum', 'm'], [Y.plus, 'plus usual', 'm'], [Y.clip, '0 to 100', 'm'], [Y.char, 'to character', 'm']];
+const LINKS = {
+  funnel: INPUTS.map((_, i) => segment([rimX(i), Y.status + 1], [nodeX(i), Y.names - 1])),
+  minus: INPUTS.map((_, i) => segment([nodeX(i), Y.raw], [nodeX(i), Y.minus])),
+  weight: INPUTS.map((_, i) => segment([nodeX(i), Y.minus], [nodeX(i), Y.weight])),
+  bands: BAND_X.map(x => ({ in: INPUTS.map((_, i) => segment([nodeX(i), Y.weight + 1], [x, Y.sum - 1])), out: segment([x, Y.sum + 2], [MIDDLE, Y.plus - 1]) })),
+  steps: [segment([MIDDLE, Y.plus], [MIDDLE, Y.clip]), segment([MIDDLE, Y.clip], [MIDDLE, Y.char])],
+  fan: INPUTS.map((_, i) => segment([MIDDLE, Y.char + 1], [rimX(i), Y.head - 1])),
+};
+
+function drawPipeline(box, r, still) {
+  const w = r && r.weather, pre = el('pre');
+  const input = w ? w.last_scored.actual : [], output = w ? w.today.map : [], bands = w ? w.model.bands : [];
+  const names = bands.length ? bands.map(b => b.name) : BAND_NAMES;
+  box.replaceChildren(pre);
+  box.setAttribute('role', 'img');
+  box.setAttribute('aria-label', w ? `Cloud cover on ${w.last_scored.date} flows row by row through 7 inputs, minus each cell's usual value, times the weights of that row's latitude band, summed, plus the usual value, held to 0 to 100, and becomes the predicted map for ${w.today.date}.` : 'The network with no data in it.');
+  pre.style.setProperty('--cols', MAP_COLS);
+
+  function paint(row, reveal, flowing, t) {
+    const grid = Array.from({ length: Y.rows }, () => Array.from({ length: MAP_COLS }, () => [' ', '']));
+    const set = (x, y, c, k) => { if (grid[y] && x >= 0 && x < MAP_COLS) grid[y][x] = [c, k]; };
+    const text = (x, y, value, k) => [...value].forEach((c, i) => set(x + i, y, c, k));
+    const active = bandOf(row), weights = bands[active] ? bands[active].weights : [];
+    const inRow = input[row] || '', outRow = output[row] || '';
+
+    const line = seg => seg.points.forEach(([x, y]) => set(x, y, seg.glyph, 'g1'));
+    // The bands not in use stay visible as sparse dots, so the active fan reads on top of them.
+    const faint = seg => seg.points.forEach(([x, y], i) => { if (i % 4 === 2) set(x, y, '.', 'g0'); });
+    // Moving characters are the row's own data; a zero weight carries nothing.
+    const flow = (seg, count, chars, phase) => {
+      const n = seg.points.length;
+      for (let j = 0; j < count; j++) {
+        const at = Math.floor((((t * RATE + phase + j / count) % 1) + 1) % 1 * n);
+        const c = chars[(at * 3 + j) % (chars.length || 1)];
+        const [x, y] = seg.points[at];
+        set(x, y, !c || c === ' ' ? '.' : c, 'g3');
+        if (at) { const [px, py] = seg.points[at - 1]; set(px, py, seg.glyph, 'g2'); }
       }
-      grid.push(row);
-    }
-    put(grid[rows >> 1], W - label.length, label, 'm');
-    runs(pre, grid);
-  }
+    };
+    // A layer lights up as the pulse passes it, in order from input to output.
+    const node = (x, y, depth) => { const lit = flowing && Math.floor(t * RATE * 3) % 6 === depth; set(x, y, lit ? 'O' : 'o', lit ? 'g3' : 'g2'); };
 
-  // One lane per input, as wide and as bright as its weight, merging into the single output of the next step.
-  function lanes(part, t, front) {
-    const { pre, rows, names, bands, label } = part, band = bands[still ? 0 : Math.floor(t / BAND_SECONDS) % bands.length];
-    const sizes = band.weights.map(Math.abs), top = Math.max(...sizes) || 1, head = [blank(), blank(), blank()], grid = [];
-    put(head[0], 0, `${band.name}: 7 inputs x 7 weights`, 'g2');
-    names.forEach((name, i) => {
-      const w = band.weights[i];
-      put(head[1], i * LANE, name, 'g3');
-      put(head[2], i * LANE, (w < 0 ? '-' : '+') + Math.abs(w).toFixed(2).replace(/^0/, ''), 'g2');
+    LINKS.bands.forEach((link, b) => { if (b !== active) { link.in.forEach(faint); faint(link.out); } });
+    const own = LINKS.bands[active], straight = [...LINKS.funnel, ...LINKS.minus, ...LINKS.weight, ...own.in, own.out, ...LINKS.steps, ...LINKS.fan];
+    straight.forEach(line);
+    if (flowing && w) {
+      const top = Math.max(...weights.map(Math.abs)) || 1;
+      [LINKS.funnel, LINKS.minus, LINKS.weight].forEach(layer => layer.forEach((seg, i) => flow(seg, 1, inRow, i / 7)));
+      own.in.forEach((seg, i) => { const size = Math.abs(weights[i] || 0); flow(seg, size < .005 ? 0 : 1 + Math.round(2 * size / top), inRow, i / 7); });
+      [own.out, ...LINKS.steps].forEach(seg => flow(seg, 1, outRow, 0));
+      LINKS.fan.forEach((seg, i) => flow(seg, 1, outRow, i / 7));
+    }
+
+    // Cloud cover is white and only the network is green. The row in flight is inverted so it still stands out.
+    input.forEach((rowText, y) => text(0, Y.input + y, rowText, y === row && flowing ? 'scan' : 'map'));
+    output.forEach((rowText, y) => text(0, Y.output + y, y < reveal ? rowText : EMPTY, y === row && flowing ? 'scan' : y < reveal ? 'map' : 'dim'));
+    text(0, 0, w ? `input: cloud cover ${w.last_scored.date}` : 'input: no data', 'map');
+    text(0, Y.head, w ? `prediction: cloud cover ${w.today.date}` : 'prediction: no data', 'map');
+    if (w) { const lat = latOf(row); text(0, Y.status, `${Math.abs(lat).toFixed(0)} ${lat < 0 ? 'S' : 'N'}: ${names[active]}`, 'g2'); }
+    LABELS.forEach(([y, label, k]) => text(LABEL_X, y, label, k));
+    INPUTS.forEach((name, i) => {
+      text(i * 5, Y.names, name, 'g3');
+      node(nodeX(i), Y.raw, 0);
+      node(nodeX(i), Y.minus, 1);
+      if (weights.length) text(i * 5, Y.weight, (weights[i] < 0 ? '-' : '+') + Math.abs(weights[i]).toFixed(2).replace(/^0/, ''), 'g3');
+      else set(nodeX(i), Y.weight, 'o', 'g2');
     });
-    for (let y = 0; y < rows; y++) {
-      const row = blank(), merged = y / (rows - 1), pull = merged * merged;
-      names.forEach((_, i) => {
-        const size = sizes[i] / top, home = i * LANE + 2, mid = home + (MID - home) * pull, half = Math.max(.5, (.5 + 2.5 * size) * (1 - .6 * pull));
-        for (let x = Math.max(0, Math.round(mid - half)); x < Math.min(W, Math.round(mid + half)); x++) {
-          const glyph = streak(x, y, rows, t, front, .35 + .65 * size);
-          if (glyph) row[x] = glyph;
-        }
-      });
-      grid.push(row);
-    }
-    put(grid[rows - 1], W - label.length, label, 'm');
-    runs(pre, [...head, ...grid]);
-  }
-
-  // Columns behind the cursor brighten; the cursor itself cycles through the ramp.
-  function read(part, phase, t) {
-    const at = phase * part.blocks.length, grid = part.art.map(row => [...(row || ' ')].map(c => [c, 'g2']));
-    part.blocks.forEach((block, k) => {
-      const reach = Math.min(1, Math.max(0, at - k)) * block.width;
-      for (let y = block.from; y < block.to; y++) grid[y].forEach((cell, x) => {
-        if (x >= reach) return;
-        cell[1] = 'g3';
-        if (reach < block.width && x >= reach - CURSOR && cell[0] !== ' ') cell[0] = RAMP[Math.floor(noise(x + y, Math.floor(t * 20)) * RAMP.length)];
-      });
+    BAND_X.forEach((x, i) => {
+      set(x, Y.sum, i === active ? '@' : 'o', i === active ? 'g3' : 'g1');
+      text(BAND_TEXT[i], Y.sum + 1, names[i], i === active ? 'g3' : 'm');
     });
-    runs(part.eq, grid);
-  }
+    [Y.plus, Y.clip, Y.char].forEach((y, i) => node(MIDDLE, y, i + 3));
 
-  const parts = steps.map((step, i) => {
-    const title = line('', 'step'), eq = el('pre', 'eq'), art = [], blocks = [];
-    step.eq.forEach((e, k) => {
-      if (k) art.push('');
-      blocks.push({ from: art.length, to: art.length + e.rows.length, width: Math.max(...e.rows.map(r => r.length)) });
-      art.push(...e.rows);
+    const spans = [];
+    grid.forEach((cells, y) => {
+      let value = '', k = cells[0][1];
+      // A blank joins the span before it, except that an inverted row keeps its own blanks and ends with them.
+      for (const [c, kind] of cells) { if (kind !== k && (c !== ' ' || k === 'scan' || kind === 'scan')) { spans.push([value, k]); value = ''; k = kind; } value += c; }
+      spans.push([value + (y < grid.length - 1 ? '\n' : ''), k]);
     });
-    eq.textContent = art.join('\n');
-    eq.setAttribute('role', 'img');
-    eq.setAttribute('aria-label', step.eq.map(e => e.say).join('. '));
-    const part = { title: title.firstChild, name: step.title, eq, art, blocks, text: eq.textContent };
-    part.title.textContent = `o ${step.title}`;
-    box.append(title, eq);
-    for (const d of step.detail) box.append(line(d, 'm'));
-    if (step.strip) {
-      part.strip = { pre: el('pre', 'strip'), rows: step.strip.rows };
-      part.strip.pre.setAttribute('aria-hidden', 'true');
-      box.append(part.strip.pre, line(step.strip.caption, 'm'));
-    }
-    if (step.stream) {
-      const pre = el('pre', 'stream'), next = steps[i + 1].stream;
-      pre.setAttribute('aria-hidden', 'true');
-      part.stream = { pre, ...step.stream, from: step.stream.width, to: next ? next.width : step.stream.width };
-      box.append(pre);
-    }
-    return part;
-  });
-  const flowOne = (part, t, front) => (part.stream.bands ? lanes : stream)(part.stream, t, front);
-  function strips(t) {
-    for (const { strip } of parts) {
-      if (!strip) continue;
-      const shift = Math.floor(t * 2);
-      strip.pre.textContent = strip.rows.map(row => { const k = shift % row.length; return (row.slice(k) + row.slice(0, k)).slice(0, W); }).join('\n');
-    }
-  }
-
-  let lit = 0;
-  function frame(t) {
-    const clock = t / STEP_SECONDS, now = Math.floor(clock) % parts.length, phase = clock % 1;
-    if (now !== lit) { const old = parts[lit]; old.eq.textContent = old.text; old.title.classList.remove('on'); old.title.textContent = `o ${old.name}`; lit = now; }
-    parts[now].title.classList.add('on');
-    parts[now].title.textContent = `@ ${parts[now].name}`;
-    read(parts[now], Math.min(phase / READ, 1), t);
-    parts.forEach((p, i) => { if (p.stream) flowOne(p, t, i === now && phase > FRONT ? (phase - FRONT) / (1 - FRONT) : null); });
-    strips(t);
+    pre.replaceChildren(...spans.map(([value, k]) => { const e = document.createElement('span'); e.textContent = value; if (k) e.className = k; return e; }));
   }
 
   clearInterval(box.timer);
-  if (still) { parts.forEach(p => { if (p.stream) flowOne(p, 1, null); }); strips(0); return; }
+  const cycle = MAP_ROWS * ROW_SECONDS + HOLD_SECONDS;
+  const frame = t => {
+    const at = t % cycle, row = Math.min(Math.floor(at / ROW_SECONDS), MAP_ROWS - 1);
+    paint(row, row + 1, at < MAP_ROWS * ROW_SECONDS, t);
+  };
+  if (still || !w) { paint(MAP_ROWS >> 1, MAP_ROWS, false, 0); return; }
   let seen = true;
   new IntersectionObserver(([e]) => { seen = e.isIntersecting; }).observe(box);
   frame(performance.now() / 1000);
