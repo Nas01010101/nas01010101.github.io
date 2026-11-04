@@ -7,6 +7,9 @@ async (page) => {
   const live = await (await ctx.request.get(url)).json();
   const row = (i, issued) => ({ date: new Date(Date.UTC(2026, 9, 7 + i)).toISOString().slice(0, 10), issued, cloud: { model: 300 + 40 * Math.sin(i), repeat: 400 }, temp: { model: 5, repeat: 6 } });
   const losses = Array.from({ length: 28 }, (_, i) => row(i, i > 20));
+  const sat = (i, issued) => ({ date: row(i).date, issued, days: { 1: { n: 9000, sgp4_km: 1.1, model_km: .9 }, 3: { n: 9000, sgp4_km: 3.4, model_km: +(2.5 + Math.sin(i) / 2).toFixed(2) }, 7: { n: 9000, sgp4_km: 12, model_km: 7 } } });
+  const satLosses = Array.from({ length: 28 }, (_, i) => sat(i, i > 20));
+  const short = [{ date: '2026-10-07', issued: false, days: { 1: { n: 9000, sgp4_km: 1.1, model_km: .9 } } }];
   const states = {
     live,
     losses: { ...live, weather: { ...live.weather, losses } },
@@ -14,13 +17,17 @@ async (page) => {
     oneDay: { ...live, weather: { ...live.weather, losses: [row(0, true)] } },
     noLosses: { ...live, weather: { ...live.weather, losses: [] } },
     stale: { ...live, weather: { ...live.weather, losses }, generated: '2026-01-01T00:00:00+00:00', status: { weather: { ok: false, updated: '2026-01-01' } } },
+    satRows: { ...live, satellites: { ...live.satellites, losses: satLosses } },
+    satOneDay: { ...live, satellites: { ...live.satellites, losses: [sat(0, true)] } },
+    satTooShort: { ...live, satellites: { ...live.satellites, losses: short } },
+    satGone: { ...live, satellites: undefined },
     missing: null,
   };
   const probe = () => {
     const c = document.documentElement, text = document.body.innerText;
     const clipped = [...document.querySelectorAll('pre')].filter(e => e.scrollWidth > e.clientWidth + 1).length;
     const net = document.querySelector('#pipeline pre');
-    return { net: !!net && net.textContent.includes('prediction:'), h: c.scrollHeight, overflow: c.scrollWidth - c.clientWidth, bad: /undefined|NaN|\[object|global|repeat|persistence/.test(text), chart: !!document.querySelector('#loss pre'), noneYet: document.getElementById('loss').innerText.includes('no scored forecasts yet'), clipped, state: document.getElementById('state').parentElement.hidden ? '' : document.getElementById('state').textContent };
+    return { net: !!net && net.textContent.includes('prediction:'), h: c.scrollHeight, overflow: c.scrollWidth - c.clientWidth, bad: /undefined|NaN|\[object|global|repeat|persistence/.test(text), chart: !!document.querySelector('#loss pre'), noneYet: document.getElementById('loss').innerText.includes('no scored forecasts yet'), satNet: !!document.querySelector('#satnet pre') && document.querySelector('#satnet pre').textContent.includes('block 6'), satChart: !!document.querySelector('#satloss pre'), satNone: document.getElementById('satloss').innerText.includes('no scored forecasts yet'), clipped, state: document.getElementById('state').parentElement.hidden ? '' : document.getElementById('state').textContent };
   };
   const rows = {};
   for (const [name, body] of Object.entries(states)) {
@@ -31,7 +38,7 @@ async (page) => {
       await p.goto('http://127.0.0.1:8765/flow.html?m=' + Date.now());
       await p.waitForTimeout(600);
       const r = await p.evaluate(probe);
-      rows[`${name} ${w}`] = `${r.h}px${r.net ? '' : ' NO NETWORK'}${r.overflow > 0 ? ' OVERFLOW ' + r.overflow : ''}${r.bad ? ' BAD TEXT' : ''}${r.chart ? ' chart' : r.noneYet ? ' none yet' : ' NO LOSS'}${r.clipped ? ' CLIPPED ' + r.clipped : ''}${r.state ? ' state: ' + r.state : ''}`;
+      rows[`${name} ${w}`] = `${r.h}px${r.net ? '' : ' NO NETWORK'}${r.overflow > 0 ? ' OVERFLOW ' + r.overflow : ''}${r.bad ? ' BAD TEXT' : ''}${r.chart ? ' chart' : r.noneYet ? ' none yet' : ' NO LOSS'}${r.satNet ? '' : ' NO SAT NET'}${r.satChart ? ' satchart' : r.satNone ? ' satnone' : ' NO SAT LOSS'}${r.clipped ? ' CLIPPED ' + r.clipped : ''}${r.state ? ' state: ' + r.state : ''}`;
     }
   }
   // The picture moves and the output fills; with reduced motion it holds the filled map and stops.
@@ -88,6 +95,23 @@ async (page) => {
     const first = document.querySelector('#loss pre').textContent.split('\n').pop();
     return { whiteBars: ink.filter(s => s.className === 'map').length, greyBars: ink.filter(s => s.className === 'm').length, green: spans.filter(s => /^g\d/.test(s.className)).length, dates: first };
   });
+  // The satellite picture moves, shows every layer, and its chart draws the 3-day rows with the latest numbers in words.
+  await p.route(url, r => r.fulfill({ json: states.satRows }));
+  await p.goto('http://127.0.0.1:8765/flow.html?m=' + Date.now());
+  await p.waitForSelector('#satloss pre');
+  const satNet = () => p.evaluate(() => document.querySelector('#satnet pre').textContent);
+  const s0 = await satNet();
+  await p.waitForTimeout(700);
+  const satellite = await p.evaluate(sat => {
+    const ink = [...document.querySelectorAll('#satloss pre span')].filter(s => s.textContent.includes('*'));
+    const net = document.querySelector('#satnet pre').textContent;
+    return {
+      white: ink.filter(s => s.className === 'map').length, grey: ink.filter(s => s.className === 'm').length,
+      words: document.getElementById('satloss').innerText.includes(`SGP4 ${sat.sgp4_km}, corrected ${sat.model_km}`),
+      blocks: (net.match(/block \d/g) || []).length, end: net.trimEnd().endsWith('mean of 3 nets'), green: [...document.querySelectorAll('#satnet pre span')].filter(s => /^g\d/.test(s.className)).length > 0,
+    };
+  }, satLosses[27].days[3]);
+  const satMoves = s0 !== await satNet();
   await ctx.close();
-  return { rows, errors, moves, stops, full, mapsMatch, weightsMatch, wide, head, bandsMatch, colours, chart };
+  return { rows, errors, moves, stops, full, mapsMatch, weightsMatch, wide, head, bandsMatch, colours, chart, satellite, satMoves };
 }

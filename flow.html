@@ -37,9 +37,9 @@ main p{max-width:84ch}
 .foot{margin-top:4rem}
 pre{margin:.857rem 0 0;font:inherit;line-height:1.1;background:var(--bg);width:max-content;max-width:100%}
 .head p+p{margin-top:.857rem}
-#loss pre{margin-top:1.714rem}
+#loss pre,#satloss pre{margin-top:1.714rem}
 /* The pipeline is taller than a screen, so wide screens run it down the right with the text beside it. */
-@media (min-width:900px){main{display:grid;width:min(100%,calc(109ch + 112px));padding:32px;grid-template-columns:minmax(0,1fr) 49ch;column-gap:48px;grid-template-areas:"head pipe" "below pipe" "foot pipe";grid-template-rows:auto auto 1fr}.head{grid-area:head}.pipe{grid-area:pipe}.below{grid-area:below}.ends{grid-area:foot}.pipe h2{margin-top:0}}
+@media (min-width:900px){main{display:grid;width:min(100%,calc(109ch + 112px));padding:32px;grid-template-columns:minmax(0,1fr) 49ch;column-gap:48px;grid-template-areas:"head pipe" "below pipe" "sat pipe" "satloss foot";grid-template-rows:auto auto 1fr auto}.head{grid-area:head}.pipe{grid-area:pipe}.below{grid-area:below}.sat{grid-area:sat}#satloss{grid-area:satloss}.ends{grid-area:foot}.ends .foot{margin-top:1.714rem}.pipe h2{margin-top:0}}
 </style>
 </head>
 <body>
@@ -68,6 +68,12 @@ pre{margin:.857rem 0 0;font:inherit;line-height:1.1;background:var(--bg);width:m
     </section>
   </div>
 
+  <section class="sat">
+    <h2><span class="t">satellite forecast</span></h2>
+    <div id="satnet" class="fit"></div>
+  </section>
+  <div id="satloss" class="fit after"></div>
+
   <div class="ends">
     <p class="foot"><span class="t m">Actuals are Open-Meteo's model output for past hours, not station readings.</span></p>
     <p><span class="t m">Weather data by</span> <span class="t"><a href="https://open-meteo.com/">Open-Meteo</a></span> <span class="t m">(CC BY 4.0). Elements by</span> <span class="t"><a href="https://celestrak.org/NORAD/elements/">CelesTrak</a></span><span class="t m">.</span></p>
@@ -90,14 +96,14 @@ function about(w) {
 }
 // One column per day, on an axis running from the lowest loss to the highest, because from zero every day draws the same.
 // Forecasts kept when they were made are white; replayed days are grey.
-function lossChart(rows) {
-  const values = rows.map(r => r.cloud.model), low = Math.floor(Math.min(...values)), high = Math.ceil(Math.max(...values));
+function lossChart(rows, value) {
+  const values = rows.map(value), low = Math.floor(Math.min(...values)), high = Math.ceil(Math.max(...values));
   const height = high > low ? 10 : 1, pre = el('pre'), label = Math.max(String(low).length, String(high).length);
   const dates = rows.length > 1 ? `${rows[0].date.slice(5)}${' '.repeat(Math.max(1, rows.length * 2 - 11))}${rows[rows.length - 1].date.slice(5)}` : rows[0].date.slice(5);
   pre.style.setProperty('--cols', label + 1 + Math.max(dates.length, rows.length * 2));
   for (let y = height - 1; y >= 0; y--) {
     pre.append(el('span', 'm', `${String(y === height - 1 ? high : y ? '' : low).padStart(label)} `));
-    rows.forEach(r => pre.append(el('span', r.issued ? 'map' : 'm', Math.round((r.cloud.model - low) / ((high - low) || 1) * (height - 1)) === y ? '* ' : '  ')));
+    rows.forEach(r => pre.append(el('span', r.issued ? 'map' : 'm', Math.round((value(r) - low) / ((high - low) || 1) * (height - 1)) === y ? '* ' : '  ')));
     pre.append('\n');
   }
   pre.append(el('span', 'm', `${' '.repeat(label)} ${dates}`));
@@ -110,7 +116,18 @@ function lossOut(w) {
   const replayed = rows.filter(r => !r.issued);
   box.append(line('Squared error per day, cloud cover, area weighted, in %².', 'm'));
   if (replayed.length) box.append(line('Grey: replayed from stored data. White: as issued.', 'm'));
-  box.append(lossChart(rows));
+  box.append(lossChart(rows, r => r.cloud.model));
+}
+// The satellite loss is the median miss of forecasts that started this many days earlier.
+const SAT_DAYS = '3';
+function satOut(s) {
+  const box = $('satloss'), rows = ((s && s.losses) || []).filter(r => r.days && r.days[SAT_DAYS]);
+  box.replaceChildren(line('The network corrects where SGP4 puts each orbit: height, along track and across. Trained offline, frozen here.', 'm'));
+  if (!rows.length) { box.append(line('no scored forecasts yet', 'm')); return; }
+  const last = rows[rows.length - 1].days[SAT_DAYS];
+  box.append(line(`Median miss after ${SAT_DAYS} days, km. Latest: SGP4 ${last.sgp4_km}, corrected ${last.model_km}.`, 'm'));
+  if (rows.some(r => !r.issued)) box.append(line('Grey: replayed from stored data. White: as issued.', 'm'));
+  box.append(lossChart(rows, r => r.days[SAT_DAYS].model_km));
 }
 function render(r) {
   const bad = Object.entries(r.status || {}).filter(([, s]) => !s.ok), age = (Date.now() - Date.parse(r.generated)) / 864e5;
@@ -123,6 +140,7 @@ function render(r) {
   drawPipeline($('pipeline'), r, still);
   about(r.weather);
   lossOut(r.weather);
+  satOut(r.satellites);
 }
 fetch(DATA, { cache: 'no-cache' }).then(res => (res.ok ? res.json() : Promise.reject(res.status))).then(render).catch(() => {
   $('state').textContent = 'The pipeline has not published a run yet, or GitHub is unreachable.';
@@ -130,7 +148,9 @@ fetch(DATA, { cache: 'no-cache' }).then(res => (res.ok ? res.json() : Promise.re
   drawPipeline($('pipeline'), null, still);
   about();
   lossOut();
+  satOut();
 });
+drawSatNet($('satnet'), matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 // The same sky as the planet page: dots, plus signs and a few cross glints that clear behind text.
 const cv = $('sky'), ctx = cv.getContext('2d'), still = matchMedia('(prefers-reduced-motion: reduce)').matches;

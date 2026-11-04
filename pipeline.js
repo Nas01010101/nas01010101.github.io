@@ -104,15 +104,68 @@ function drawPipeline(box, r, still) {
     pre.replaceChildren(...spans.map(([value, k]) => { const e = document.createElement('span'); e.textContent = value; if (k) e.className = k; return e; }));
   }
 
-  clearInterval(box.timer);
   const cycle = MAP_ROWS * ROW_SECONDS + HOLD_SECONDS;
   const frame = t => {
     const at = t % cycle, row = Math.min(Math.floor(at / ROW_SECONDS), MAP_ROWS - 1);
     paint(row, row + 1, at < MAP_ROWS * ROW_SECONDS, t);
   };
-  if (still || !w) { paint(MAP_ROWS >> 1, MAP_ROWS, false, 0); return; }
+  if (still || !w) { clearInterval(box.timer); paint(MAP_ROWS >> 1, MAP_ROWS, false, 0); return; }
+  animate(box, frame);
+}
+
+// Runs a frame ten times a second while the picture is on screen.
+function animate(box, frame) {
+  clearInterval(box.timer);
   let seen = true;
   new IntersectionObserver(([e]) => { seen = e.isIntersecting; }).observe(box);
   frame(performance.now() / 1000);
   box.timer = setInterval(() => { if (seen && !document.hidden) frame(performance.now() / 1000); }, 100);
+}
+
+// The satellite network, top to bottom. Each row is a layer it has, drawn with fewer nodes than it holds. A block
+// is two layers whose output is added back to the block's input, which the bar on the left marks.
+const SAT_NODES = 15, SAT_LABEL_X = 34, SAT_BLOCKS = 6;
+const SAT_LAYERS = [
+  { label: '45 inputs', nodes: SAT_NODES },
+  { label: 'linear 256', nodes: SAT_NODES },
+  ...Array.from({ length: SAT_BLOCKS }, (_, b) => [
+    { label: `block ${b + 1}`, nodes: SAT_NODES, bar: true },
+    { label: '', nodes: SAT_NODES, bar: true, closes: true },
+  ]).flat(),
+  { label: '4 outputs', nodes: 4 },
+  { label: '3 corrections', nodes: 3 },
+  { label: 'mean of 3 nets', nodes: 3 },
+];
+
+function satColumns(n) {
+  return Array.from({ length: n }, (_, i) => n === SAT_NODES ? 2 + 2 * i : 2 + Math.round((i + .5) * 2 * SAT_NODES / n));
+}
+
+function drawSatNet(box, still) {
+  const pre = el('pre');
+  box.replaceChildren(pre);
+  box.setAttribute('role', 'img');
+  box.setAttribute('aria-label', `A network drawn top to bottom: 45 inputs, a layer 256 wide, ${SAT_BLOCKS} residual blocks 256 wide, 4 outputs, 3 corrections, and the mean of 3 such networks.`);
+  pre.style.setProperty('--cols', MAP_COLS);
+  function paint(lit) {
+    const parts = [];
+    SAT_LAYERS.forEach((layer, y) => {
+      const on = y === lit, row = Array(SAT_LABEL_X).fill(' '), next = SAT_LAYERS[y + 1];
+      satColumns(layer.nodes).forEach(x => { row[x] = on ? 'O' : 'o'; });
+      if (layer.bar) row[0] = '+';
+      parts.push([row.join(''), on ? 'g3' : 'g2'], [`${layer.label}\n`, 'm']);
+      if (!next) return;
+      const link = Array(SAT_LABEL_X).fill(' '), to = satColumns(next.nodes);
+      if (layer.bar && !layer.closes) link[0] = '|';
+      satColumns(layer.nodes).forEach(x => {
+        // Each node feeds the nearest node below; a straight line needs the same column.
+        const target = to.reduce((best, c) => Math.abs(c - x) < Math.abs(best - x) ? c : best);
+        link[x] = target === x ? '|' : target < x ? '/' : '\\';
+      });
+      parts.push([`${link.join('').trimEnd()}\n`, on ? 'g2' : 'g1']);
+    });
+    pre.replaceChildren(...parts.map(([value, k]) => el('span', k, value)));
+  }
+  if (still) { clearInterval(box.timer); paint(-1); return; }
+  animate(box, t => paint(Math.floor(t * RATE * 4) % (SAT_LAYERS.length + 2)));
 }
