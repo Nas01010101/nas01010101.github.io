@@ -11,8 +11,8 @@ async (page) => {
   const sizes = [[280,653],[320,568],[320,640],[360,740],[390,844],[430,932],[568,320],[667,375],[844,390],[932,430],[600,960],[768,1024],[820,1180],[1024,768],[1024,1366],[1280,600],[1280,800],[1440,900],[1920,1080],[2560,1440],[3440,1440],[900,500],[1000,1100]];
   const probe = () => {
     const rect = el => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top + scrollY, r: r.right, b: r.bottom + scrollY }; };
-    const copy = rect(document.getElementById('copy')), note = rect(document.getElementById('note')), read = rect(document.getElementById('reading')), link = rect(document.getElementById('what'));
-    const ink = [...document.querySelectorAll('#copy .t, #note .t, #reading .t, #what .t')].map(e => e.getBoundingClientRect());
+    const copy = rect(document.getElementById('copy')), note = rect(document.getElementById('note')), read = rect(document.getElementById('reading')), today = rect(document.getElementById('today')), link = rect(document.getElementById('what'));
+    const ink = [...document.querySelectorAll('#copy .t, #note .t, #reading .t, #today .t, #what .t')].map(e => e.getBoundingClientRect()).filter(r => r.width);
     const inkR = Math.max(...ink.map(r => r.right)), inkL = Math.min(...ink.map(r => r.left));
     const o = globe();
     const hit = b => { const dx = Math.max(b.l - o.x, 0, o.x - b.r), dy = Math.max(b.t - o.y, 0, o.y - b.b); return Math.hypot(dx, dy) < o.R * RIM - 1; };
@@ -22,9 +22,9 @@ async (page) => {
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       inkPast: Math.max(0, Math.round(inkR - innerWidth + 8), Math.round(8 - inkL)),
       font: parseFloat(getComputedStyle(document.documentElement).fontSize),
-      globeHitsCopy: hit(copy), globeHitsNote: hit(note), globeHitsReading: hit(read), globeHitsLink: hit(link), copyHitsNote: over(copy, note),
-      linkHitsCopy: over(link, copy), linkHitsNote: over(link, note), linkHitsReading: over(link, read), readingHitsCopy: over(read, copy),
-      centred: Math.abs((read.l + read.r) / 2 - document.documentElement.clientWidth / 2) < 2, readingTop: Math.round(read.t), under: link.t >= o.y + o.R * RIM - 2,
+      globeHitsCopy: hit(copy), globeHitsNote: hit(note), globeHitsReading: hit(read), globeHitsToday: hit(today), globeHitsLink: hit(link), copyHitsNote: over(copy, note),
+      linkHitsCopy: over(link, copy), linkHitsNote: over(link, note), linkHitsReading: over(link, read), readingHitsCopy: over(read, copy), todayHitsCopy: over(today, copy), todayHitsNote: over(today, note),
+      centred: Math.abs((read.l + read.r) / 2 - document.documentElement.clientWidth / 2) < 2, readingTop: Math.round(read.t), under: link.t >= o.y + o.R * RIM - 2, aboveEarth: Math.abs((today.l + today.r) / 2 - o.x) < 2 && today.b <= o.y - o.R * RIM + 1,
       R: Math.round(o.R), offTop: o.y - o.R * RIM < -1,
       scroll: document.documentElement.scrollHeight - innerHeight,
       prStars: pr.length, clouds: !!cover,
@@ -34,18 +34,19 @@ async (page) => {
   for (const [w, h] of sizes) {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('http://127.0.0.1:8765/index.html?m=' + Date.now());
-    await page.waitForFunction(() => document.getElementById('fleet').style.visibility === '' && document.getElementById('weather').style.visibility === '');
+    await page.waitForFunction(() => document.getElementById('fleet').style.visibility === '' && document.getElementById('weather').style.visibility === '' && document.getElementById('today').style.visibility === '');
     await page.waitForTimeout(50);
     const p = await page.evaluate(probe);
     const bad = [];
     if (p.overflowX > 0) bad.push('overflowX ' + p.overflowX);
     if (p.inkPast) bad.push('text within 8px of edge by ' + p.inkPast);
-    for (const k of ['globeHitsCopy', 'globeHitsNote', 'globeHitsReading', 'globeHitsLink', 'copyHitsNote', 'linkHitsCopy', 'linkHitsNote', 'linkHitsReading', 'readingHitsCopy', 'offTop']) if (p[k]) bad.push(k);
+    for (const k of ['globeHitsCopy', 'globeHitsNote', 'globeHitsReading', 'globeHitsToday', 'globeHitsLink', 'todayHitsCopy', 'todayHitsNote', 'copyHitsNote', 'linkHitsCopy', 'linkHitsNote', 'linkHitsReading', 'readingHitsCopy', 'offTop']) if (p[k]) bad.push(k);
     if (!p.centred) bad.push('reading not centred');
     if (p.readingTop > 32) bad.push('reading not at top');
     if (!p.under) bad.push('link not under planet');
+    if (!p.aboveEarth) bad.push('forecast not above planet');
     if (p.R < .18 * Math.min(w, h)) bad.push('planet small');
-    if (p.prStars < 6) bad.push('only ' + p.prStars + ' stars for hover');
+    if (p.prStars < 24) bad.push('only ' + p.prStars + ' stars for hover');
     if (!p.clouds) bad.push('no clouds');
     rows.push(`${w}x${h} font=${p.font} R=${p.R} scroll=${p.scroll} ${bad.length ? 'BAD: ' + bad.join('; ') : 'ok'}`);
   }
