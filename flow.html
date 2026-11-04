@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>What am I seeing</title>
+<meta name="description" content="How the clouds and satellites on the planet are sourced, forecast and scored against this week's data.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+*{box-sizing:border-box}
+html{background:var(--bg);color:var(--fg);font:clamp(10px,calc((100vw - 32px) / 24),14px)/1.714 var(--mono);-webkit-text-size-adjust:100%}
+body{margin:0;position:relative}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0}
+main{position:relative;z-index:1;padding:32px 16px;width:min(100%,84ch);margin:0 auto}
+.t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+h1,h2{margin:0;font:inherit}
+h2{margin-top:3.428rem}
+p{margin:0}
+.m{color:var(--muted)}
+.here{color:var(--here)}
+.gap{margin-bottom:1.714rem}
+a{color:var(--fg);text-decoration:none;white-space:nowrap}
+a::before{content:"["}a::after{content:"]"}
+@media (hover:hover){a:hover{background:var(--fg);color:var(--bg)}}
+a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
+::selection{background:var(--fg);color:var(--bg)}
+.flow{display:grid;gap:3.428rem;margin-top:1.714rem}
+@media (min-width:760px){html{font-size:14px}.flow{grid-template-columns:1fr 1fr;gap:2rem}}
+.arrow{color:var(--muted);padding-left:2ch;line-height:1.2}
+table{width:100%;border-collapse:collapse}
+th,td{padding:0;font:inherit;font-weight:400;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+tfoot td{padding-top:.857rem}
+.wide{overflow-x:auto}
+/* A map is 48 columns of about .6em each, so it scales to fit the narrowest phone. */
+pre{margin:.857rem 0 0;font:inherit;font-size:min(1rem,calc((100vw - 32px) / 30));line-height:1.1;background:var(--bg);width:max-content;max-width:100%}
+.maps{display:grid;gap:1.714rem;margin-top:.857rem}
+@media (min-width:1000px){main{width:min(100%,120ch)}.maps{grid-template-columns:1fr 1fr;column-gap:4ch}}
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<main>
+  <p class="gap"><span class="t"><a href="./">back to the planet</a></span></p>
+  <h1 class="gap"><span class="t">what am i seeing here</span></h1>
+  <p><span class="t">The clouds and rain on the planet are the Open-Meteo forecast for this hour, on a 7.5 degree grid. How much of each cell is cloudy is data; the edge pattern inside a cell is drawn.</span></p>
+  <p class="gap"><span class="t">The satellites are CelesTrak's published orbits, moved to this second in your browser.</span></p>
+  <p><span class="t" id="state">loading today's run</span></p>
+  <p><span class="t"><a href="https://github.com/Nas01010101/ascii-earth-forecast">repo</a></span> <span class="t m" id="generated"></span></p>
+
+  <div class="flow">
+    <section aria-label="Weather data flow">
+      <p><span class="t here">weather</span></p>
+      <div id="weather-flow"></div>
+    </section>
+    <section aria-label="Satellite data flow">
+      <p><span class="t here">satellites</span></p>
+      <div id="sat-flow"></div>
+    </section>
+  </div>
+
+  <h2><span class="t">weather forecast vs this week</span></h2>
+  <p><span class="t m">Mean absolute error, weighted by area. Each day is predicted using only the days before it. Persistence repeats yesterday; trailing mean averages the earlier days.</span></p>
+  <div id="weather-out" class="wide"></div>
+
+  <h2><span class="t">satellite position vs this week</span></h2>
+  <p><span class="t m">Each row moves elements published that many days ago to the epoch of today's elements and measures the distance, in km. The drift column subtracts an along-track correction fitted on yesterday's pair.</span></p>
+  <div id="sat-out" class="wide"></div>
+
+  <h2><span class="t">what "actual" means here</span></h2>
+  <p class="gap"><span class="t m">Weather: Open-Meteo's own model output for past hours, not station readings. Satellites: SGP4 run from the newest published elements, not a tracking measurement. Both carry their own error, which these scores do not include.</span></p>
+  <p><span class="t m">Weather data by</span> <span class="t"><a href="https://open-meteo.com/">Open-Meteo</a></span> <span class="t m">(CC BY 4.0). Elements by</span> <span class="t"><a href="https://celestrak.org/NORAD/elements/">CelesTrak</a></span><span class="t m">.</span></p>
+</main>
+<script>
+'use strict';
+const DATA = 'https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/forecast.json';
+const $ = id => document.getElementById(id);
+// Builds an element. Everything from the JSON goes through textContent, never as markup.
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+const line = (text, cls) => { const p = el('p'), s = el('span', 't' + (cls ? ' ' + cls : ''), text); p.append(s); return p; };
+const fmt = v => (v === undefined || v === null ? '-' : Number(v).toLocaleString('en-CA').replace(/\s/g, ','));
+
+function flow(box, steps) {
+  steps.forEach(([title, detail], i) => {
+    if (i) box.append(el('div', 'arrow', '|'), el('div', 'arrow', 'v'));
+    box.append(line(title));
+    for (const d of detail) box.append(line(d, 'm'));
+  });
+}
+function table(rows, foot) {
+  const t = el('table'), head = t.createTHead().insertRow();
+  for (const h of rows[0]) { const th = el('th', 'm'); th.scope = 'col'; th.append(el('span', 't', h)); head.append(th); }
+  const fill = (body, list) => { for (const r of list) { const tr = body.insertRow(); for (const v of r) tr.insertCell().append(el('span', 't', v)); } };
+  fill(t.createTBody(), rows.slice(1));
+  if (foot) fill(t.createTFoot(), foot);
+  return t;
+}
+function map(title, rows) {
+  const box = el('div');
+  box.append(line(title, 'm'), el('pre', '', rows.join('\n')));
+  return box;
+}
+function verdict(name, unit, s) {
+  const gain = (1 - s.model / Math.min(s.persistence, s.trailing_mean)) * 100, best = s.persistence <= s.trailing_mean ? 'persistence' : 'trailing mean';
+  const said = gain > 0 ? `${gain.toFixed(0)}% below ${best}` : `${(-gain).toFixed(0)}% above ${best}, so the model lost this week`;
+  return line(`${name}: ${s.model}${unit} off on average, ${said}`);
+}
+function weatherOut(w) {
+  const box = $('weather-out');
+  if (!w) { box.append(line('no scores yet', 'm')); return; }
+  box.append(verdict('cloud cover', ' points', w.week.cloud), verdict('temperature', ' C', w.week.temp));
+  const scores = el('div', 'maps');
+  for (const [key, label] of [['cloud', 'cloud pts'], ['temp', 'temp C']]) {
+    const rows = [[label, 'model', 'persist', 'mean']];
+    for (const d of w.days) rows.push([d.date.slice(5), d[key].model, d[key].persistence, d[key].trailing_mean]);
+    scores.append(table(rows));
+  }
+  box.append(scores);
+  box.append(line(' '), line(`today, ${w.today.date}: ${w.today.cloud_mean}% cloud, ${w.today.temp_mean} C global mean predicted. Tomorrow's table predicts this day again from the stored days.`));
+  const maps = el('div', 'maps'), s = w.last_scored;
+  maps.append(map(`predicted cloud cover, ${s.date}`, s.forecast), map(`actual cloud cover, ${s.date}`, s.actual), map('absolute error, full scale 50 points', s.error), map(`predicted cloud cover, today`, w.today.map));
+  box.append(maps);
+}
+function satOut(o) {
+  const box = $('sat-out');
+  if (!o || !o.horizons.length) { box.append(line('The first comparison appears the day after the first snapshot and fills to seven days over a week.', 'm')); return; }
+  const rows = [['days old', 'low', 'drift', 'medium', 'geo', 'ISS']];
+  for (const h of o.horizons) rows.push([h.days, fmt(h.low && h.low.median_km), fmt(h.low_corrected && h.low_corrected.median_km), fmt(h.medium && h.medium.median_km), fmt(h.geostationary && h.geostationary.median_km), fmt(h.iss_km)]);
+  box.append(table(rows), line('Median across satellites. Objects that manoeuvred are included.', 'm'));
+}
+function render(r) {
+  const bad = Object.entries(r.status || {}).filter(([, s]) => !s.ok), age = (Date.now() - Date.parse(r.generated)) / 864e5;
+  $('generated').textContent = `last run ${r.generated.slice(0, 16).replace('T', ' ')} UTC`;
+  // A failed source keeps its last good section, and the page says how old that is. So does a run that stopped happening.
+  const said = bad.map(([n, s]) => `${n} did not update, showing ${s.updated || 'nothing yet'}`);
+  if (age > 1.5) said.push(`no run for ${Math.floor(age)} days`);
+  $('state').textContent = said.length ? said.join('. ') : 'today\'s run finished';
+  flows(r);
+  weatherOut(r.weather);
+  satOut(r.satellites);
+}
+function flows(r) {
+  const w = r && r.weather, o = r && r.satellites;
+  flow($('weather-flow'), [
+    ['Open-Meteo forecast API', ['1,152 grid cells, hourly, once a day']],
+    ['validate', ['ranges, shape, under 1% of cells missing']],
+    ['preprocess', ['UTC daily means, complete days only', `rolling ${w ? w.train_days : 60} days, as departures from each cell's mean`]],
+    ['train', ['ridge regression per latitude band', w ? w.features.join(', ') : 'the last 3 days and 4 neighbouring cells']],
+    ['predict', ['today, from the days through yesterday']],
+    ['score', ['last 7 days, against persistence and trailing mean']],
+  ]);
+  flow($('sat-flow'), [
+    ['CelesTrak active elements', [`${o ? fmt(o.count) + ' satellites' : 'all active satellites'}, one snapshot a day`]],
+    ['validate', ['header and row count, then keep 9 days']],
+    ['preprocess', ['match by NORAD id, keep those with newer elements']],
+    ['predict', ['SGP4 from elements 1 to 7 days old', 'ridge fit of along-track drift, low orbits']],
+    ['actual', ['SGP4 from today\'s elements, at their epoch']],
+    ['score', ['distance in km, by orbit and age']],
+  ]);
+}
+fetch(DATA, { cache: 'no-cache' }).then(res => (res.ok ? res.json() : Promise.reject(res.status))).then(render).catch(() => {
+  $('state').textContent = 'The pipeline has not published a run yet, or GitHub is unreachable.';
+  flows();
+  weatherOut();
+  satOut();
+});
+
+// The same sky as the planet page: dots, plus signs and a few cross glints that clear behind text.
+const cv = $('sky'), ctx = cv.getContext('2d'), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const hash = (x, y, z) => { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); };
+const INKS = ['#3a3a3a', '#666', '#969696', '#c8c8c8'];
+let stars = [], cw = 0, ch = 0, dpr = 1;
+function build() {
+  const size = cv.getBoundingClientRect(), font = (size.width < 700 ? 8 : 12);
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = Math.round(size.width * dpr); cv.height = Math.round(size.height * dpr);
+  ctx.font = `${font * dpr}px ${getComputedStyle(document.documentElement).getPropertyValue('--mono')}`;
+  ctx.textBaseline = 'top';
+  cw = Math.ceil(ctx.measureText('M').width); ch = Math.ceil(font * dpr * 1.2);
+  stars = Array.from({ length: Math.round(size.width * size.height / (size.width < 700 ? 6600 : 23040)) }, (_, i) => ({
+    col: Math.floor(hash(i, 1, 9) * cv.width / cw), row: Math.floor(hash(i, 2, 8) * cv.height / ch), b: hash(i, 7, 1), ph: hash(i, 4, 6) * 6.28, sp: .4 + 1.4 * hash(i, 5, 5), ink: -1,
+  }));
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  for (const st of stars) if (st.b > .95) { // Glints do not twinkle, so they are drawn once.
+    const put = (dc, dr, glyph, ink) => { ctx.fillStyle = INKS[ink]; ctx.fillText(glyph, (st.col + dc) * cw, (st.row + dr) * ch); };
+    put(0, 0, '+', 3); put(-1, 0, '-', 2); put(1, 0, '-', 2); put(-2, 0, '-', 1); put(2, 0, '-', 1); put(0, -1, '|', 2); put(0, 1, '|', 2);
+  }
+  twinkle(40);
+}
+function twinkle(t) {
+  for (const st of stars) {
+    if (st.b > .95) continue;
+    const ink = Math.min(3, Math.floor((.3 + .7 * st.b) * (.7 + .3 * Math.sin(t * st.sp + st.ph)) * 4));
+    if (ink === st.ink) continue;
+    st.ink = ink;
+    ctx.clearRect(st.col * cw, st.row * ch, cw, ch);
+    ctx.fillStyle = INKS[ink];
+    ctx.fillText(st.b > .8 ? '+' : '.', st.col * cw, st.row * ch);
+  }
+}
+new ResizeObserver(build).observe(cv);
+if (!still) setInterval(() => twinkle(performance.now() / 1000 + 40), 200);
+</script>
+</body>
+</html>
