@@ -8,7 +8,7 @@
 <meta name="description" content="How the clouds and satellites on the planet are sourced, forecast and scored against this week's data.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--here:#ffb347;--g0:#14512f;--g1:#1f8f55;--g2:#36d07f;--g3:#a6ffcf;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
 *{box-sizing:border-box}
 html{background:var(--bg);color:var(--fg);font:clamp(10px,calc((100vw - 32px) / 24),14px)/1.714 var(--mono);-webkit-text-size-adjust:100%}
 body{margin:0;position:relative}
@@ -28,16 +28,25 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 ::selection{background:var(--fg);color:var(--bg)}
 .flow{display:grid;gap:3.428rem;margin-top:1.714rem}
 @media (min-width:760px){html{font-size:14px}.flow{grid-template-columns:1fr 1fr;gap:2rem}}
-.arrow{color:var(--muted);padding-left:2ch;line-height:1.2}
+.flow section{container-type:inline-size;min-width:0}
+/* Equations and streams are 48 columns of about .6em, so they scale to their column. */
+.flow pre{font-size:min(1rem,calc(100cqw / 29.5))}
+.flow h3{margin:0;font:inherit;color:var(--g2)}
+.g0{color:var(--g0)}.g1{color:var(--g1)}.g2{color:var(--g2)}.g3{color:var(--g3)}
+.step.on{color:var(--g3)}
+.eq{margin:.571rem 0;color:var(--g2)}
+.strip{color:var(--g1)}
+.stream{margin:.571rem 0}
 table{width:100%;border-collapse:collapse}
 th,td{padding:0;font:inherit;font-weight:400;text-align:right;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 tfoot td{padding-top:.857rem}
 .wide{overflow-x:auto}
 /* A map is 48 columns of about .6em each, so it scales to fit the narrowest phone. */
-pre{margin:.857rem 0 0;font:inherit;font-size:min(1rem,calc((100vw - 32px) / 30));line-height:1.1;background:var(--bg);width:max-content;max-width:100%}
-.maps{display:grid;gap:1.714rem;margin-top:.857rem}
-@media (min-width:1000px){main{width:min(100%,120ch)}.maps{grid-template-columns:1fr 1fr;column-gap:4ch}}
+pre{margin:.857rem 0 0;font:inherit;font-size:min(1rem,calc((100vw - 48px) / 30));line-height:1.1;background:var(--bg);width:max-content;max-width:100%}
+.maps{display:grid;grid-template-columns:minmax(0,1fr);gap:1.714rem;margin-top:.857rem}
+.maps>*{min-width:0;overflow-x:auto}
+@media (min-width:1000px){main{width:min(100%,120ch)}.maps{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:4ch}}
 </style>
 </head>
 <body>
@@ -45,18 +54,20 @@ pre{margin:.857rem 0 0;font:inherit;font-size:min(1rem,calc((100vw - 32px) / 30)
 <main>
   <p class="gap"><span class="t"><a href="./">back to the planet</a></span></p>
   <h1 class="gap"><span class="t">what am i seeing here</span></h1>
-  <p><span class="t">The clouds and rain on the planet are the Open-Meteo forecast for this hour, on a 7.5 degree grid. How much of each cell is cloudy is data; the edge pattern inside a cell is drawn.</span></p>
+  <p><span class="t">The clouds and rain on the planet are the Open-Meteo forecast for this hour, on a 7.5 degree grid, not this project's model. How much of each cell is cloudy is data; the edge pattern inside a cell is drawn.</span></p>
   <p class="gap"><span class="t">The satellites are CelesTrak's published orbits, moved to this second in your browser.</span></p>
   <p><span class="t" id="state">loading today's run</span></p>
   <p><span class="t"><a href="https://github.com/Nas01010101/ascii-earth-forecast">repo</a></span> <span class="t m" id="generated"></span></p>
 
+  <h2><span class="t">pipeline</span></h2>
+  <p><span class="t m">Each step shows the equation it runs. A narrower stream carries fewer values, and the label beside it is the array shape leaving that step. Under train, one lane per input is drawn as wide as its weight, and the lanes merge into the one value predicted for each cell.</span></p>
   <div class="flow">
-    <section aria-label="Weather data flow">
-      <p><span class="t here">weather</span></p>
+    <section aria-label="Weather pipeline">
+      <h3><span class="t">weather</span></h3>
       <div id="weather-flow"></div>
     </section>
-    <section aria-label="Satellite data flow">
-      <p><span class="t here">satellites</span></p>
+    <section aria-label="Satellite pipeline">
+      <h3><span class="t">satellites</span></h3>
       <div id="sat-flow"></div>
     </section>
   </div>
@@ -73,6 +84,8 @@ pre{margin:.857rem 0 0;font:inherit;font-size:min(1rem,calc((100vw - 32px) / 30)
   <p class="gap"><span class="t m">Weather: Open-Meteo's own model output for past hours, not station readings. Satellites: SGP4 run from the newest published elements, not a tracking measurement. Both carry their own error, which these scores do not include.</span></p>
   <p><span class="t m">Weather data by</span> <span class="t"><a href="https://open-meteo.com/">Open-Meteo</a></span> <span class="t m">(CC BY 4.0). Elements by</span> <span class="t"><a href="https://celestrak.org/NORAD/elements/">CelesTrak</a></span><span class="t m">.</span></p>
 </main>
+<script src="pipeline.js"></script>
+<script src="steps.js"></script>
 <script>
 'use strict';
 const DATA = 'https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/forecast.json';
@@ -82,13 +95,6 @@ function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.
 const line = (text, cls) => { const p = el('p'), s = el('span', 't' + (cls ? ' ' + cls : ''), text); p.append(s); return p; };
 const fmt = v => (v === undefined || v === null ? '-' : Number(v).toLocaleString('en-CA').replace(/\s/g, ','));
 
-function flow(box, steps) {
-  steps.forEach(([title, detail], i) => {
-    if (i) box.append(el('div', 'arrow', '|'), el('div', 'arrow', 'v'));
-    box.append(line(title));
-    for (const d of detail) box.append(line(d, 'm'));
-  });
-}
 function table(rows, foot) {
   const t = el('table'), head = t.createTHead().insertRow();
   for (const h of rows[0]) { const th = el('th', 'm'); th.scope = 'col'; th.append(el('span', 't', h)); head.append(th); }
@@ -97,9 +103,9 @@ function table(rows, foot) {
   if (foot) fill(t.createTFoot(), foot);
   return t;
 }
-function map(title, rows) {
+function map(name, detail, rows) {
   const box = el('div');
-  box.append(line(title, 'm'), el('pre', '', rows.join('\n')));
+  box.append(line(name, 'here'), line(detail, 'm'), el('pre', '', rows.join('\n')));
   return box;
 }
 function verdict(name, unit, s) {
@@ -110,7 +116,8 @@ function verdict(name, unit, s) {
 function weatherOut(w) {
   const box = $('weather-out');
   if (!w) { box.append(line('no scores yet', 'm')); return; }
-  box.append(verdict('cloud cover', ' points', w.week.cloud), verdict('temperature', ' C', w.week.temp));
+  const s = w.last_scored, day = w.days[w.days.length - 1].cloud;
+  box.append(line(`Newest complete day: ${s.date}. Today has no actual until it ends.`), verdict('cloud cover', ' points', w.week.cloud), verdict('temperature', ' C', w.week.temp));
   const scores = el('div', 'maps');
   for (const [key, label] of [['cloud', 'cloud pts'], ['temp', 'temp C']]) {
     const rows = [[label, 'model', 'persist', 'mean']];
@@ -119,8 +126,14 @@ function weatherOut(w) {
   }
   box.append(scores);
   box.append(line(' '), line(`today, ${w.today.date}: ${w.today.cloud_mean}% cloud, ${w.today.temp_mean} C global mean predicted. Tomorrow's table predicts this day again from the stored days.`));
-  const maps = el('div', 'maps'), s = w.last_scored;
-  maps.append(map(`predicted cloud cover, ${s.date}`, s.forecast), map(`actual cloud cover, ${s.date}`, s.actual), map('absolute error, full scale 50 points', s.error), map(`predicted cloud cover, today`, w.today.map));
+  const maps = el('div', 'maps');
+  box.append(line(' '), line('Maps: 48 columns by 24 rows, north up. Cloud cover runs from blank at 0% to @ at 100%.', 'm'));
+  maps.append(
+    map('predicted', `this model's cloud cover for ${s.date}`, s.forecast),
+    map('actual', `Open-Meteo's daily mean for ${s.date}`, s.actual),
+    map('error', `|predicted - actual|: ${day.model} points on average, persistence ${day.persistence}. @ is 50 or more.`, s.error),
+    map('predicted, not scored yet', `this model's cloud cover for today, ${w.today.date}`, w.today.map),
+  );
   box.append(maps);
 }
 function satOut(o) {
@@ -140,25 +153,6 @@ function render(r) {
   flows(r);
   weatherOut(r.weather);
   satOut(r.satellites);
-}
-function flows(r) {
-  const w = r && r.weather, o = r && r.satellites;
-  flow($('weather-flow'), [
-    ['Open-Meteo forecast API', ['1,152 grid cells, hourly, once a day']],
-    ['validate', ['ranges, shape, under 1% of cells missing']],
-    ['preprocess', ['UTC daily means, complete days only', `rolling ${w ? w.train_days : 60} days, as departures from each cell's mean`]],
-    ['train', ['ridge regression per latitude band', w ? w.features.join(', ') : 'the last 3 days and 4 neighbouring cells']],
-    ['predict', ['today, from the days through yesterday']],
-    ['score', ['last 7 days, against persistence and trailing mean']],
-  ]);
-  flow($('sat-flow'), [
-    ['CelesTrak active elements', [`${o ? fmt(o.count) + ' satellites' : 'all active satellites'}, one snapshot a day`]],
-    ['validate', ['header and row count, then keep 9 days']],
-    ['preprocess', ['match by NORAD id, keep those with newer elements']],
-    ['predict', ['SGP4 from elements 1 to 7 days old', 'ridge fit of along-track drift, low orbits']],
-    ['actual', ['SGP4 from today\'s elements, at their epoch']],
-    ['score', ['distance in km, by orbit and age']],
-  ]);
 }
 fetch(DATA, { cache: 'no-cache' }).then(res => (res.ok ? res.json() : Promise.reject(res.status))).then(render).catch(() => {
   $('state').textContent = 'The pipeline has not published a run yet, or GitHub is unreachable.';
