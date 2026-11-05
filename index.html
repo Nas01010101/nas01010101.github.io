@@ -20,10 +20,11 @@ main{position:relative;z-index:1;padding:0 16px;min-height:100vh;min-height:100s
 .t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
 #reading{width:min(100%,70ch);margin:0 auto;padding-top:16px;text-align:center}
 #what{position:absolute;z-index:1;width:max-content;transform:translateX(-50%);text-align:center}
-#note{text-wrap:balance}
+/* Columns line up, so the block keeps its own spaces and its lines start flush left. */
+#note{display:inline-block;text-align:left;white-space:pre}
 #spin{position:absolute;z-index:1;white-space:nowrap}
-/* The top padding holds the planet, its three-line caption and the line of the link above it. */
-.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(min(84vw,56vh) + 5.142rem) 0 32px;padding-top:calc(min(84vw,56svh) + 5.142rem)}
+/* The top padding holds the planet, its eight-line caption and the line of the link above it. */
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(min(84vw,56vh) + 13.712rem) 0 32px;padding-top:calc(min(84vw,56svh) + 13.712rem)}
 #copy{width:min(100%,39ch)}
 /* The planet sits beside the text on landscape screens and above it on portrait ones; globe() reads the same query. */
 @media (min-width:600px) and (max-aspect-ratio:999/1000){html{font-size:16px}}
@@ -37,7 +38,6 @@ p{margin:0}
 .here{color:var(--here)}
 ::selection{background:var(--fg);color:var(--bg)}
 .gap{margin-bottom:1.714rem}
-#status{white-space:pre-wrap}
 table{width:100%;border-collapse:collapse}
 th,td{padding:0;font:inherit;text-align:left;white-space:nowrap}
 tr>:last-child{text-align:right}
@@ -65,7 +65,7 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
   </div>
   <div id="what">
     <p><span class="t" aria-hidden="true">↑</span><br><span class="t"><a href="flow.html">what am i seeing here</a></span></p>
-    <p id="note"><span class="t m"><span class="here">+</span> <span id="status">Montréal</span><span id="meteo"></span></span></p>
+    <p id="note"></p>
   </div>
   <div id="spin"><span class="t" aria-hidden="true">↙</span> <span class="t"><a href="earth.html">pale blue dot</a></span></div>
   <div class="hero">
@@ -96,6 +96,7 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 </main>
 <script src="orbits.js"></script>
 <script src="planet.js"></script>
+<script src="cities.js"></script>
 <script src="reading.js"></script>
 <script>
 'use strict';
@@ -269,11 +270,21 @@ function frame(t) {
     pg[i] = g[i]; pc[i] = c[i];
   }
 }
+// The published forecast once it loads, if it is for today or yesterday.
+let forecast = null;
 function status() {
-  const ms = now();
-  const clock = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
-  const sun = subsolar(ms), up = Math.sin(HERE_LAT) * Math.sin(sun.dec) + Math.cos(HERE_LAT) * Math.cos(sun.dec) * Math.cos(HERE_LON - sun.lon) > 0;
-  document.getElementById('status').textContent = `Montréal ${clock}, ${up ? 'day' : 'night'}`;
+  const lines = cityLines(now(), forecast, subsolar), out = [];
+  const line = (text, muted) => { const el = document.createElement('span'); el.className = muted ? 't m' : 't'; el.textContent = text; return el; };
+  if (lines.head) out.push(line(`  ${lines.head}`, true));
+  lines.rows.forEach((row, k) => {
+    // Montréal leads with the same orange cross that marks it on the planet.
+    const el = line(k ? `  ${row}` : ` ${row}`, k > 0);
+    if (!k) { const plus = document.createElement('span'); plus.className = 'here'; plus.textContent = '+'; el.prepend(plus); }
+    out.push(el);
+  });
+  if (lines.detail) out.push(line(`  ${lines.detail}`));
+  if (lines.source) out.push(line(`  ${lines.source}`, true));
+  document.getElementById('note').replaceChildren(...out.flatMap((el, k) => (k ? ['\n', el] : [el])));
 }
 // The status line sets the note's width, which the star filter reads.
 status(); build(); setInterval(status, 3e4);
@@ -303,11 +314,10 @@ download(FORECAST + 'planet.bin').then(buf => {
   paint();
 }).catch(() => {});
 setInterval(() => { const had = frameShown; showFrame(now()); if (frameShown !== had) paint(); }, 6e5);
-// The model's forecast for Montréal's cell, not the Open-Meteo clouds drawn on the planet. A run older than yesterday adds nothing rather than an old day.
-fetch(FORECAST + 'forecast.json').then(r => (r.ok ? r.json() : Promise.reject(r.status))).then(({ weather: { today: { date, places } } }) => {
-  const here = places.find(p => p.place.includes('Montreal'));
-  if (here && now() - Date.parse(date) <= 2 * 864e5) document.getElementById('meteo').textContent = `, forecast ${here.temp}°C, ${here.cloud}% cloud`;
-}).catch(() => {}).finally(() => { build(); paint(); });
+// The model's forecast for each city's cell, not the Open-Meteo clouds drawn on the planet. A run older than yesterday adds nothing rather than an old day.
+fetch(FORECAST + 'forecast.json').then(r => (r.ok ? r.json() : Promise.reject(r.status))).then(({ weather: { today } }) => {
+  if (now() - Date.parse(today.date) <= 2 * 864e5) forecast = today;
+}).catch(() => {}).finally(() => { status(); build(); paint(); });
 // Pointing at a repo lights one star per PR merged there; the total lights all of them.
 let from = 0;
 for (const el of document.querySelectorAll('[data-prs]')) {
