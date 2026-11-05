@@ -1,98 +1,76 @@
 'use strict';
-// Draws the forecast model top to bottom, one small layer per step it computes. Only the weights are trained.
-// A scan moves down the input map; each row's own characters travel through the band that row belongs to
-// and the prediction for that row appears on the output map.
-const INPUTS = ['yest', '2d', '3d', 'N', 'S', 'E', 'W'], BAND_NAMES = ['tropics', 'mid-latitudes', 'poles'];
-const MAP_ROWS = 24, MAP_COLS = 48, ROW_SECONDS = .4, HOLD_SECONDS = 2, RATE = .9;
-
-// Rows run north to south on a 7.5 degree grid, with the same band limits as the model.
+// Draws the forecast network top to bottom, one small row per layer it computes. The whole map enters at once, so
+// waves of the map's own characters travel down the layers; the prediction appears once the first wave arrives.
+const MAP_ROWS = 24, MAP_COLS = 48, ROW_SECONDS = .15, HOLD_SECONDS = 2, RATE = .9;
+const WAVE_ROWS_PER_SECOND = 8, WAVE_GAP = 12, FAN_SLOPES = [-3, -2, -1, 0, 1, 2, 3], FAN_ROWS = 4;
 const EMPTY = '. '.repeat(MAP_COLS / 2);
-const latOf = row => 90 - (row + .5) * 7.5;
-const bandOf = row => { const lat = Math.abs(latOf(row)); return lat < 30 ? 0 : lat < 60 ? 1 : 2; };
 
-function segment([x0, y0], [x1, y1]) {
-  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1), dx = x1 - x0, dy = y1 - y0;
-  const glyph = Math.abs(dy) * 3 < Math.abs(dx) ? '-' : Math.abs(dx) * 3 < Math.abs(dy) ? '|' : dx * dy > 0 ? '\\' : '/';
-  return { glyph, points: Array.from({ length: n + 1 }, (_, i) => [Math.round(x0 + dx * i / n), Math.round(y0 + dy * i / n)]) };
-}
-
-// Where everything sits. The layers fill the left of the map's width and their names the right.
-const Y = { input: 1, status: 25, names: 31, raw: 32, minus: 34, weight: 36, sum: 42, plus: 46, clip: 48, char: 50, head: 56, output: 57, rows: 81 };
-const LABEL_X = 36, MIDDLE = 16, BAND_X = [29, 16, 3], BAND_TEXT = [26, 10, 1];
-const nodeX = i => i * 5 + 1, rimX = i => Math.round((i + .5) * MAP_COLS / INPUTS.length);
-const LABELS = [[Y.names, 'inputs', 'm'], [Y.minus, 'minus usual', 'm'], [Y.weight, 'times weight', 'g2'], [Y.sum, 'sum', 'm'], [Y.plus, 'plus usual', 'm'], [Y.clip, '0 to 100', 'm'], [Y.char, 'to character', 'm']];
-const LINKS = {
-  funnel: INPUTS.map((_, i) => segment([rimX(i), Y.status + 1], [nodeX(i), Y.names - 1])),
-  minus: INPUTS.map((_, i) => segment([nodeX(i), Y.raw], [nodeX(i), Y.minus])),
-  weight: INPUTS.map((_, i) => segment([nodeX(i), Y.minus], [nodeX(i), Y.weight])),
-  bands: BAND_X.map(x => ({ in: INPUTS.map((_, i) => segment([nodeX(i), Y.weight + 1], [x, Y.sum - 1])), out: segment([x, Y.sum + 2], [MIDDLE, Y.plus - 1]) })),
-  steps: [segment([MIDDLE, Y.plus], [MIDDLE, Y.clip]), segment([MIDDLE, Y.clip], [MIDDLE, Y.char])],
-  fan: INPUTS.map((_, i) => segment([MIDDLE, Y.char + 1], [rimX(i), Y.head - 1])),
-};
+// forecast/cloudnet.py: each block is two convolutions, and the row of nodes narrows as the grid halves.
+const NET_LAYERS = [
+  { nodes: 15, label: '62 inputs' },
+  { nodes: 15, label: '64 at 48x24' }, { nodes: 15 },
+  { nodes: 11, label: '128 at 24x12' }, { nodes: 11 },
+  { nodes: 7, label: '256 at 12x6' }, { nodes: 7 },
+  { nodes: 3, label: '256 at 6x3' }, { nodes: 3 },
+  { nodes: 7, label: '256 at 12x6' }, { nodes: 7 },
+  { nodes: 11, label: '128 at 24x12' }, { nodes: 11 },
+  { nodes: 15, label: '64 at 48x24' }, { nodes: 15 },
+  { nodes: 1, label: '1 output' },
+  { nodes: 1, label: 'plus base' },
+  { nodes: 1, label: '0 to 100' },
+];
+// Each block going down hands its output to the block coming back up at the same grid: [from layer, to layer, column].
+const NET_SKIPS = [[2, 13, 0], [4, 11, 4], [6, 9, 8]], BOTTOM_LAYER = 8;
+const NET_X = 17, LABEL_X = 36;
+const Y = { caption: 25, top: 26, net: 27, fan: 62, head: 66, output: 67, rows: 91 };
+const layerY = i => Y.net + 2 * i;
+const netColumns = n => Array.from({ length: n }, (_, i) => NET_X + 2 * i - n + 1);
+const ARRIVES = (Y.head - Y.top) / WAVE_ROWS_PER_SECOND;
 
 function drawPipeline(box, r, still) {
   const w = r && r.weather, pre = el('pre');
-  const input = w ? w.last_scored.actual : [], output = w ? w.today.map : [], bands = w ? w.model.bands : [];
-  const names = bands.length ? bands.map(b => b.name) : BAND_NAMES;
+  const input = w ? w.last_scored.actual : [], output = w ? w.today.map : [];
   box.replaceChildren(pre);
   box.setAttribute('role', 'img');
-  box.setAttribute('aria-label', w ? `Cloud cover on ${w.last_scored.date} flows row by row through 7 inputs, minus each cell's usual value, times the weights of that row's latitude band, summed, plus the usual value, held to 0 to 100, and becomes the predicted map for ${w.today.date}.` : 'The network with no data in it.');
+  box.setAttribute('aria-label', w ? `Cloud cover and six other fields up to ${w.last_scored.date} enter a U-Net drawn top to bottom: 62 inputs, four blocks that halve the grid from 48x24 to 6x3, three blocks that double it back and take the output of the matching block on the way down, one output added to a base forecast, held to 0 to 100, which becomes the predicted map for ${w.today.date}.` : 'The network with no data in it.');
   pre.style.setProperty('--cols', MAP_COLS);
 
-  function paint(row, reveal, flowing, t) {
+  // moved is how many rows the first wave has travelled, or null in the still picture.
+  function paint(row, reveal, moved) {
     const grid = Array.from({ length: Y.rows }, () => Array.from({ length: MAP_COLS }, () => [' ', '']));
     const set = (x, y, c, k) => { if (grid[y] && x >= 0 && x < MAP_COLS) grid[y][x] = [c, k]; };
     const text = (x, y, value, k) => [...value].forEach((c, i) => set(x + i, y, c, k));
-    const active = bandOf(row), weights = bands[active] ? bands[active].weights : [];
-    const inRow = input[row] || '', outRow = output[row] || '';
+    const wave = y => moved !== null && y - Y.top <= moved && (moved - (y - Y.top)) % WAVE_GAP < 2;
+    // What travels is the map itself: the input until the narrowest layer and the prediction after it.
+    const carried = (x, y) => { const c = ((y < layerY(BOTTOM_LAYER) ? input : output)[y * 5 % MAP_ROWS] || '')[x]; return !c || c === ' ' ? '.' : c; };
+    const link = (x, y, glyph) => { const on = wave(y); set(x, y, on ? carried(x, y) : glyph, on ? 'g3' : 'g1'); };
 
-    const line = seg => seg.points.forEach(([x, y]) => set(x, y, seg.glyph, 'g1'));
-    // The bands not in use stay visible as sparse dots, so the active fan reads on top of them.
-    const faint = seg => seg.points.forEach(([x, y], i) => { if (i % 4 === 2) set(x, y, '.', 'g0'); });
-    // Moving characters are the row's own data; a zero weight carries nothing.
-    const flow = (seg, count, chars, phase) => {
-      const n = seg.points.length;
-      for (let j = 0; j < count; j++) {
-        const at = Math.floor((((t * RATE + phase + j / count) % 1) + 1) % 1 * n);
-        const c = chars[(at * 3 + j) % (chars.length || 1)];
-        const [x, y] = seg.points[at];
-        set(x, y, !c || c === ' ' ? '.' : c, 'g3');
-        if (at) { const [px, py] = seg.points[at - 1]; set(px, py, seg.glyph, 'g2'); }
-      }
-    };
-    // A layer lights up as the pulse passes it, in order from input to output.
-    const node = (x, y, depth) => { const lit = flowing && Math.floor(t * RATE * 3) % 6 === depth; set(x, y, lit ? 'O' : 'o', lit ? 'g3' : 'g2'); };
+    netColumns(NET_LAYERS[0].nodes).forEach(x => link(x, Y.top, '|'));
+    for (let step = 0; step < FAN_ROWS; step++) FAN_SLOPES.forEach(s => link(NET_X + s * (step + 1), Y.fan + step, s < 0 ? '/' : s > 0 ? '\\' : '|'));
+    NET_SKIPS.forEach(([from, to, x]) => {
+      const first = netColumns(NET_LAYERS[from].nodes)[0];
+      for (let y = layerY(from); y <= layerY(to); y++) link(x, y, '|');
+      [from, to].forEach(i => { set(x, layerY(i), '+', 'g2'); for (let c = x + 1; c < first; c++) set(c, layerY(i), '-', 'g1'); });
+    });
+    NET_LAYERS.forEach((layer, i) => {
+      const y = layerY(i), on = wave(y), columns = netColumns(layer.nodes), next = NET_LAYERS[i + 1];
+      columns.forEach(x => set(x, y, on ? 'O' : 'o', on ? 'g3' : 'g2'));
+      if (layer.label) text(LABEL_X, y, layer.label, 'm');
+      if (!next) return;
+      const below = netColumns(next.nodes);
+      columns.forEach(x => {
+        // Each node feeds the nearest node below; a straight line needs the same column.
+        const target = below.reduce((best, c) => Math.abs(c - x) < Math.abs(best - x) ? c : best);
+        link(x, y + 1, target === x ? '|' : target < x ? '/' : '\\');
+      });
+    });
 
-    LINKS.bands.forEach((link, b) => { if (b !== active) { link.in.forEach(faint); faint(link.out); } });
-    const own = LINKS.bands[active], straight = [...LINKS.funnel, ...LINKS.minus, ...LINKS.weight, ...own.in, own.out, ...LINKS.steps, ...LINKS.fan];
-    straight.forEach(line);
-    if (flowing && w) {
-      const top = Math.max(...weights.map(Math.abs)) || 1;
-      [LINKS.funnel, LINKS.minus, LINKS.weight].forEach(layer => layer.forEach((seg, i) => flow(seg, 1, inRow, i / 7)));
-      own.in.forEach((seg, i) => { const size = Math.abs(weights[i] || 0); flow(seg, size < .005 ? 0 : 1 + Math.round(2 * size / top), inRow, i / 7); });
-      [own.out, ...LINKS.steps].forEach(seg => flow(seg, 1, outRow, 0));
-      LINKS.fan.forEach((seg, i) => flow(seg, 1, outRow, i / 7));
-    }
-
-    // Cloud cover is white and only the network is green. The row in flight is inverted so it still stands out.
-    input.forEach((rowText, y) => text(0, Y.input + y, rowText, y === row && flowing ? 'scan' : 'map'));
-    output.forEach((rowText, y) => text(0, Y.output + y, y < reveal ? rowText : EMPTY, y === row && flowing ? 'scan' : y < reveal ? 'map' : 'dim'));
+    // Cloud cover is white and only the network is green. The row being written is inverted so it stands out.
+    input.forEach((rowText, y) => text(0, 1 + y, rowText, 'map'));
+    output.forEach((rowText, y) => text(0, Y.output + y, y < reveal ? rowText : EMPTY, y === row && moved !== null ? 'scan' : y < reveal ? 'map' : 'dim'));
     text(0, 0, w ? `input: cloud cover ${w.last_scored.date}` : 'input: no data', 'map');
+    if (w) text(0, Y.caption, 'and temperature, rain, pressure, wind, vapour', 'm');
     text(0, Y.head, w ? `prediction: cloud cover ${w.today.date}` : 'prediction: no data', 'map');
-    if (w) { const lat = latOf(row); text(0, Y.status, `${Math.abs(lat).toFixed(0)} ${lat < 0 ? 'S' : 'N'}: ${names[active]}`, 'g2'); }
-    LABELS.forEach(([y, label, k]) => text(LABEL_X, y, label, k));
-    INPUTS.forEach((name, i) => {
-      text(i * 5, Y.names, name, 'g3');
-      node(nodeX(i), Y.raw, 0);
-      node(nodeX(i), Y.minus, 1);
-      if (weights.length) text(i * 5, Y.weight, (weights[i] < 0 ? '-' : '+') + Math.abs(weights[i]).toFixed(2).replace(/^0/, ''), 'g3');
-      else set(nodeX(i), Y.weight, 'o', 'g2');
-    });
-    BAND_X.forEach((x, i) => {
-      set(x, Y.sum, i === active ? '@' : 'o', i === active ? 'g3' : 'g1');
-      text(BAND_TEXT[i], Y.sum + 1, names[i], i === active ? 'g3' : 'm');
-    });
-    [Y.plus, Y.clip, Y.char].forEach((y, i) => node(MIDDLE, y, i + 3));
 
     const spans = [];
     grid.forEach((cells, y) => {
@@ -104,12 +82,12 @@ function drawPipeline(box, r, still) {
     pre.replaceChildren(...spans.map(([value, k]) => { const e = document.createElement('span'); e.textContent = value; if (k) e.className = k; return e; }));
   }
 
-  const cycle = MAP_ROWS * ROW_SECONDS + HOLD_SECONDS;
+  const cycle = ARRIVES + MAP_ROWS * ROW_SECONDS + HOLD_SECONDS;
   const frame = t => {
-    const at = t % cycle, row = Math.min(Math.floor(at / ROW_SECONDS), MAP_ROWS - 1);
-    paint(row, row + 1, at < MAP_ROWS * ROW_SECONDS, t);
+    const at = t % cycle, filled = Math.floor((at - ARRIVES) / ROW_SECONDS);
+    paint(filled, Math.max(0, Math.min(filled + 1, MAP_ROWS)), at * WAVE_ROWS_PER_SECOND);
   };
-  if (still || !w) { clearInterval(box.timer); paint(MAP_ROWS >> 1, MAP_ROWS, false, 0); return; }
+  if (still || !w) { clearInterval(box.timer); paint(-1, MAP_ROWS, null); return; }
   animate(box, frame);
 }
 

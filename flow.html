@@ -92,18 +92,20 @@ function about(w) {
   const box = $('about');
   box.replaceChildren();
   if (!w) return;
-  box.append(line(`Only the weights are trained: ridge regression, refit daily on the past ${w.train_days} days. Temperature runs the same way.`, 'm'));
+  box.append(line('A U-Net reads the past 30 days and predicts the day\'s mean cloud cover. Trained on ERA5, 1979 to 2018, then frozen.', 'm'));
+  box.append(line(`Temperature: ridge regression, refit daily on the past ${w.train_days} days.`, 'm'));
+  if (!w.today.net) box.append(line('Today\'s map came from ridge regression, because the job did not hold the 30 days the network reads.', 'm'));
 }
 // One column per day, on an axis running from the lowest loss to the highest, because from zero every day draws the same.
 // Forecasts kept when they were made are white; replayed days are grey.
-function lossChart(rows, value) {
+function lossChart(rows, value, mark = () => '*') {
   const values = rows.map(value), low = Math.floor(Math.min(...values)), high = Math.ceil(Math.max(...values));
   const height = high > low ? 10 : 1, pre = el('pre'), label = Math.max(String(low).length, String(high).length);
   const dates = rows.length > 1 ? `${rows[0].date.slice(5)}${' '.repeat(Math.max(1, rows.length * 2 - 11))}${rows[rows.length - 1].date.slice(5)}` : rows[0].date.slice(5);
   pre.style.setProperty('--cols', label + 1 + Math.max(dates.length, rows.length * 2));
   for (let y = height - 1; y >= 0; y--) {
     pre.append(el('span', 'm', `${String(y === height - 1 ? high : y ? '' : low).padStart(label)} `));
-    rows.forEach(r => pre.append(el('span', r.issued ? 'map' : 'm', Math.round((value(r) - low) / ((high - low) || 1) * (height - 1)) === y ? '* ' : '  ')));
+    rows.forEach(r => pre.append(el('span', r.issued ? 'map' : 'm', Math.round((value(r) - low) / ((high - low) || 1) * (height - 1)) === y ? `${mark(r)} ` : '  ')));
     pre.append('\n');
   }
   pre.append(el('span', 'm', `${' '.repeat(label)} ${dates}`));
@@ -116,7 +118,10 @@ function lossOut(w) {
   const replayed = rows.filter(r => !r.issued);
   box.append(line('Squared error per day, cloud cover, area weighted, in %².', 'm'));
   if (replayed.length) box.append(line('Grey: replayed from stored data. White: as issued.', 'm'));
-  box.append(lossChart(rows, r => r.cloud.model));
+  // Days before the network, and any day it could not run, were forecast by the ridge.
+  const mixed = rows.some(r => r.net) && rows.some(r => !r.net);
+  if (mixed) box.append(line('o: ridge regression. *: network.', 'm'));
+  box.append(lossChart(rows, r => r.cloud.model, mixed ? r => (r.net ? '*' : 'o') : undefined));
 }
 // The satellite loss is the median miss of forecasts that started this many days earlier.
 const SAT_DAYS = '3';

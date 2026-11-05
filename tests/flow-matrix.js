@@ -9,9 +9,12 @@ async (page) => {
   const losses = Array.from({ length: 28 }, (_, i) => row(i, i > 20));
   const sat = (i, issued) => ({ date: row(i).date, issued, days: { 1: { n: 9000, sgp4_km: 1.1, model_km: .9 }, 3: { n: 9000, sgp4_km: 3.4, model_km: +(2.5 + Math.sin(i) / 2).toFixed(2) }, 7: { n: 9000, sgp4_km: 12, model_km: 7 } } });
   const satLosses = Array.from({ length: 28 }, (_, i) => sat(i, i > 20));
+  const mixed = losses.map((r, i) => ({ ...r, net: i > 20 }));
   const short = [{ date: '2026-10-07', issued: false, days: { 1: { n: 9000, sgp4_km: 1.1, model_km: .9 } } }];
   const states = {
     live,
+    network: { ...live, weather: { ...live.weather, model: undefined, today: { ...live.weather.today, net: true }, losses: mixed } },
+    ridgeToday: { ...live, weather: { ...live.weather, model: undefined, today: { ...live.weather.today, net: false }, losses: mixed } },
     losses: { ...live, weather: { ...live.weather, losses } },
     replayed: { ...live, weather: { ...live.weather, losses: losses.map(r => ({ ...r, issued: false })) } },
     oneDay: { ...live, weather: { ...live.weather, losses: [row(0, true)] } },
@@ -27,7 +30,7 @@ async (page) => {
     const c = document.documentElement, text = document.body.innerText;
     const clipped = [...document.querySelectorAll('pre')].filter(e => e.scrollWidth > e.clientWidth + 1).length;
     const net = document.querySelector('#pipeline pre');
-    return { net: !!net && net.textContent.includes('prediction:'), h: c.scrollHeight, overflow: c.scrollWidth - c.clientWidth, bad: /undefined|NaN|\[object|global|repeat|persistence/.test(text), chart: !!document.querySelector('#loss pre'), noneYet: document.getElementById('loss').innerText.includes('no scored forecasts yet'), satNet: !!document.querySelector('#satnet pre') && document.querySelector('#satnet pre').textContent.includes('block 6'), satChart: !!document.querySelector('#satloss pre'), satNone: document.getElementById('satloss').innerText.includes('no scored forecasts yet'), clipped, state: document.getElementById('state').parentElement.hidden ? '' : document.getElementById('state').textContent };
+    return { net: !!net && net.textContent.includes('prediction:') && net.textContent.includes('256 at 6x3'), h: c.scrollHeight, overflow: c.scrollWidth - c.clientWidth, bad: /undefined|NaN|\[object|global|repeat|persistence/.test(text), chart: !!document.querySelector('#loss pre'), noneYet: document.getElementById('loss').innerText.includes('no scored forecasts yet'), satNet: !!document.querySelector('#satnet pre') && document.querySelector('#satnet pre').textContent.includes('block 6'), satChart: !!document.querySelector('#satloss pre'), satNone: document.getElementById('satloss').innerText.includes('no scored forecasts yet'), clipped, state: document.getElementById('state').parentElement.hidden ? '' : document.getElementById('state').textContent };
   };
   const rows = {};
   for (const [name, body] of Object.entries(states)) {
@@ -62,11 +65,7 @@ async (page) => {
   // The maps on screen are the published rows, character for character, and row r belongs to the model's band.
   const trim = l => l.replace(/ +$/, '');
   const mapsMatch = Array.from({ length: 24 }, (_, y) => trim(lines[1 + y]) === trim(live.weather.last_scored.actual[y]) && trim(lines[head + 1 + y]) === trim(live.weather.today.map[y])).every(Boolean);
-  // One set of weights is printed, matching the band the still picture holds.
-  const held = await q.evaluate(() => bandOf(12));
-  const weightsMatch = lines.some(l => live.weather.model.bands[held].weights.every(v => l.includes((v < 0 ? '-' : '+') + Math.abs(v).toFixed(2).replace(/^0/, ''))));
   const wide = await q.evaluate(() => getComputedStyle(document.querySelector('#pipeline pre')).getPropertyValue('--cols'));
-  const bandsMatch = await q.evaluate(() => Array.from({ length: 24 }, (_, r) => bandOf(r)).join('') === '222211110000000011112222');
   await rc.close();
   // Maps stay white and everything between them is green, apart from muted labels.
   const colours = await p.evaluate(() => {
@@ -99,6 +98,19 @@ async (page) => {
   await p.route(url, r => r.fulfill({ json: states.satRows }));
   await p.goto('http://127.0.0.1:8765/flow.html?m=' + Date.now());
   await p.waitForSelector('#satloss pre');
+  // The chart marks ridge days and network days, and the page says when today's map came from the ridge.
+  const said = async body => {
+    await p.unroute(url).catch(() => {});
+    await p.route(url, r => r.fulfill({ json: body }));
+    await p.goto('http://127.0.0.1:8765/flow.html?m=' + Date.now());
+    await p.waitForSelector('#loss pre');
+    return p.evaluate(() => ({ ridge: document.getElementById('about').innerText.includes("Today's map came from ridge"), legend: document.getElementById('loss').innerText.includes('o: ridge'), o: (document.querySelector('#loss pre').textContent.match(/o /g) || []).length, stars: (document.querySelector('#loss pre').textContent.match(/\* /g) || []).length }));
+  };
+  const marks = { network: await said(states.network), ridgeToday: await said(states.ridgeToday) };
+  await p.unroute(url).catch(() => {});
+  await p.route(url, r => r.fulfill({ json: states.satRows }));
+  await p.goto('http://127.0.0.1:8765/flow.html?m=' + Date.now());
+  await p.waitForSelector('#satloss pre');
   const satNet = () => p.evaluate(() => document.querySelector('#satnet pre').textContent);
   const s0 = await satNet();
   await p.waitForTimeout(700);
@@ -113,5 +125,5 @@ async (page) => {
   }, satLosses[27].days[3]);
   const satMoves = s0 !== await satNet();
   await ctx.close();
-  return { rows, errors, moves, stops, full, mapsMatch, weightsMatch, wide, head, bandsMatch, colours, chart, satellite, satMoves };
+  return { rows, errors, moves, stops, full, mapsMatch, wide, head, colours, chart, marks, satellite, satMoves };
 }
