@@ -92,6 +92,50 @@ async (page) => {
   const b = await page.evaluate(() => [$('orbit').toDataURL(), $('sky').toDataURL(), clock()].join());
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
+  // The weather view: no dots, no orbit work, the full planet at any zoom, and the night side drawn. Then back.
+  await serve({});
+  const inked = () => page.evaluate(() => {
+    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    let lit = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i]) lit++;
+    return lit;
+  });
+  const weatherViews = {};
+  for (const [w, h] of [[1440, 900], [768, 1024], [390, 844], [280, 653], [844, 390]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await open('');
+    await page.waitForFunction(() => orb && mCols, null, { timeout: 20000 });
+    await page.waitForTimeout(300);
+    const on = await page.evaluate(() => ({ wrapped: (window.calls = 0, window.first = orbitsAt, window.orbitsAt = (...a) => { window.calls++; window.last = a; return first(...a); }, 1), top: $('top').getBoundingClientRect().height, stage: stage.clientHeight, label: $('sats').textContent, overflow: document.documentElement.scrollWidth - innerWidth }));
+    const planetOn = await inked();
+    await page.locator('#sats').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    await page.evaluate(() => { window.calls = 0; });
+    await page.waitForTimeout(600);
+    if ([1440, 390].includes(w)) await page.screenshot({ path: `${shots}weather-${w}.png` });
+    const off = await page.evaluate(() => { for (let k = 0; k < 40; k++) zoomAt(1.25, W / 2, H / 2); tick(); return { label: $('sats').textContent, orbitShown: getComputedStyle(orbitCv).display !== 'none', countShown: !$('count').hidden, calls, opacity: cv.style.opacity, zoom: view.zoom, top: $('top').getBoundingClientRect().height, overflow: document.documentElement.scrollWidth - innerWidth }; });
+    await page.evaluate(() => { view.zoom = 1; dirty = true; tick(); });
+    const planetOff = await inked();
+    await page.locator('#sats').click();
+    const back = await page.evaluate(() => ({ label: $('sats').textContent, orbitShown: getComputedStyle(orbitCv).display !== 'none', countShown: !$('count').hidden, refreshed: window.last && window.last.length === 3 }));
+    await page.waitForTimeout(200);
+    const dots = await page.evaluate(() => { const d = orbitCtx.getImageData(0, 0, orbitCv.width, orbitCv.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; });
+    weatherViews[`${w}x${h}`] = { on, off, back, dots, planetOn, planetOff };
+  }
+  // Night over the camera, the view that has to show its clouds.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`http://127.0.0.1:8765/earth.html?t=2026-11-05T04:00Z&m=${Date.now()}`);
+  await page.waitForFunction(() => orb && mCols, null, { timeout: 20000 });
+  await page.waitForTimeout(300);
+  const nightOn = await inked();
+  await page.screenshot({ path: `${shots}night-dots.png` });
+  await page.locator('#sats').click();
+  await page.waitForTimeout(300);
+  const nightOff = await inked();
+  await page.screenshot({ path: `${shots}night-weather.png` });
+  const night = { nightOn, nightOff };
+
   // Frame cost on a phone, without and with a 6x CPU slowdown.
   const perf = {};
   const cdp = await page.context().newCDPSession(page);
@@ -115,5 +159,5 @@ async (page) => {
   }
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
   await cdp.send('Emulation.clearDeviceMetricsOverride');
-  return { rows, states, stillSame: a === b, perf, errors };
+  return { rows, states, stillSame: a === b, weatherViews, night, perf, errors };
 }

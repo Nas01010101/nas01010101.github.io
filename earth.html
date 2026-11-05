@@ -23,14 +23,16 @@ p{margin:0}
 .here{color:var(--here)}
 .t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
 ::selection{background:var(--fg);color:var(--bg)}
-a{color:var(--fg);text-decoration:none;white-space:nowrap}
-a::before{content:"["}
-a::after{content:"]"}
-@media (hover:hover){a:hover{background:var(--fg);color:var(--bg)}}
-a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
+a,button{color:var(--fg);text-decoration:none;white-space:nowrap}
+button{background:none;border:0;padding:0;font:inherit;cursor:pointer}
+a::before,button::before{content:"["}
+a::after,button::after{content:"]"}
+@media (hover:hover){a:hover,button:hover{background:var(--fg);color:var(--bg)}}
+a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 
 #top,#forecast{width:var(--col);margin-inline:auto}
 #top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding-block:12px 4px}
+#sats{margin-left:auto}
 
 #stage{position:relative;overflow:hidden;touch-action:none;cursor:grab;outline:0}
 #stage.moving{cursor:grabbing}
@@ -54,7 +56,7 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 #legend{white-space:nowrap}
 
 /* A phone's thumb needs more than a line of text. */
-@media (pointer:coarse){a{padding:6px 2px}}
+@media (pointer:coarse){a,button{padding:6px 2px}}
 /* A phone on its side has no height to stack in, so the map moves beside the globe. */
 @media (max-height:500px) and (orientation:landscape){
   body{grid-template-columns:minmax(0,1fr) minmax(0,46%);grid-template-rows:auto 1fr}
@@ -71,6 +73,7 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 <header id="top">
   <a href="./">home</a>
   <h1>earth in 3d</h1>
+  <button id="sats" type="button">weather only</button>
 </header>
 <div id="stage" tabindex="0" role="application" aria-label="The Earth. Drag or use the arrow keys to turn, scroll or use plus and minus to zoom.">
   <canvas id="sky" aria-hidden="true"></canvas>

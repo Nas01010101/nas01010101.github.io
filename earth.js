@@ -3,13 +3,13 @@
 const $ = id => document.getElementById(id);
 const cv = $('sky'), ctx = cv.getContext('2d'), orbitCv = $('orbit'), orbitCtx = orbitCv.getContext('2d', { alpha: true }), stage = $('stage');
 const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const ZOOM_MAX = 20000, SLICES = 15, SUN_MS = 30000;
+const ZOOM_MAX = 20000, SLICES = 15, SUN_MS = 30000, NIGHT_LIGHT = .2;
 const view = { yaw: HERE_LON, pitch: 25 * RAD, zoom: 1 };
 const opened = now();
 
 let W = 0, H = 0, dpr = 0, cols, rows, cwD, chD, cw, ch, atlas, g, c, pg, pc, stars = [];
 let orb = null, pos = null, slice = 0, meta = null;
-let dirty = true, last = 0, cost = 0, sunAt = 0;
+let dirty = true, last = 0, cost = 0, sunAt = 0, showDots = true;
 
 const clock = () => (still ? opened : now());
 const radius = () => Math.min(W, H) * .44 * view.zoom;
@@ -78,7 +78,9 @@ function drawPlanet(T) {
         continue;
       }
       const z = Math.sqrt(1 - r2), ey = ny * cp + z * sp, ez = z * cp - ny * sp;
-      const shade = smooth(-.12, .62, dx * Sx + ny * Sy + z * Sz) * (.62 + .38 * z);
+      const lit = smooth(-.12, .62, dx * Sx + ny * Sy + z * Sz) * (.62 + .38 * z);
+      // The night side draws no cloud, and the weather view has to show all of it.
+      const shade = showDots ? lit : Math.max(lit, NIGHT_LIGHT);
       const cell = surface(Math.asin(Math.max(-1, Math.min(1, ey))), Math.atan2(dx, ez) + view.yaw, shade);
       g[i] = cell >> 8;
       if (cell >= 0) c[i] = cell & 255;
@@ -113,7 +115,7 @@ function drawDots(T) {
 
 function drawScale() {
   // Close in, the planet is a wall of glyphs behind the dots, so it recedes as the zoom grows.
-  cv.style.opacity = Math.max(.3, 1 - .9 * Math.max(0, Math.log10(view.zoom / 2))).toFixed(2);
+  cv.style.opacity = showDots ? Math.max(.3, 1 - .9 * Math.max(0, Math.log10(view.zoom / 2))).toFixed(2) : 1;
   const shown = view.zoom > 2;
   $('scale').hidden = !shown;
   if (!shown) return;
@@ -129,13 +131,13 @@ function tick() {
   applyClouds(T);
   if (cover !== before) dirty = true;
   stepAim();
-  if (orb && !still) {
+  if (orb && showDots && !still) {
     orbitsAt(orb, T, pos, Math.floor(slice * orb.n / SLICES), Math.floor((slice + 1) * orb.n / SLICES));
     slice = (slice + 1) % SLICES;
   }
   const nowMs = performance.now();
   if (dirty || (!still && nowMs - sunAt > SUN_MS)) { drawPlanet(T); drawScale(); sunAt = nowMs; }
-  if (dirty || !still) drawDots(T);
+  if (showDots && (dirty || !still)) drawDots(T);
   drawMap();
   dirty = false;
 }
@@ -149,6 +151,15 @@ function loop(t) {
   }
   requestAnimationFrame(loop);
 }
+
+$('sats').addEventListener('click', e => {
+  showDots = !showDots;
+  e.currentTarget.textContent = showDots ? 'weather only' : 'show satellites';
+  orbitCv.hidden = $('count').hidden = !showDots;
+  // Their positions stood still while hidden.
+  if (showDots && orb) orbitsAt(orb, clock(), pos);
+  dirty = true;
+});
 
 // Pointer: one finger or mouse turns, two pinch.
 const pointers = new Map();

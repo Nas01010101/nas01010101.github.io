@@ -242,7 +242,11 @@ const dots = download(`${FORECAST}sats.bin`).catch(() => download('sats.bin')).t
   orbitsAt(orb, clock(), pos);
   $('count').textContent = `${orb.n.toLocaleString('en-US')} objects, CelesTrak`;
   dirty = true;
-}).catch(() => { $('count').textContent = 'satellites did not load'; });
+}).catch(() => {
+  $('count').textContent = 'satellites did not load';
+  // Nothing to take away, unless the visitor already did.
+  if (showDots) $('sats').hidden = true;
+});
 const info = fetch(`${FORECAST}forecast.json`).then(r => (r.ok ? r.json() : Promise.reject(r.status))).then(data => { meta = data; dirty = true; }).catch(() => { meta = null; });
 const planetLoad = download(`${FORECAST}planet.bin`).then(buffer => { loadWeather(buffer); dirty = true; }).catch(() => {});
 // Until both have answered the map says it is loading; after that, an empty map means nothing reached the page.
