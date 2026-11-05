@@ -5,94 +5,158 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>Earth in 3D</title>
-<meta name="description" content="The Earth at true scale with every tracked object at its true height. Pick a satellite to see where SGP4 and a neural network put it.">
+<meta name="description" content="The Earth at true scale with every tracked object at its true height, a cloud forecast printed as a map, and SGP4 against a neural network for one satellite.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--net:#36d07f;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--net:#36d07f;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace;--col:min(100% - 32px,2.73 * 30vh)}
+/* The map's height is 30% of the window at most, so the globe always keeps the larger share. */
+@supports (height:1svh){:root{--col:min(100% - 32px,2.73 * 30svh)}}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{background:var(--bg);color:var(--fg);font:12px/1.714 var(--mono);-webkit-text-size-adjust:100%}
 @media (min-width:700px){html{font-size:14px}}
-body{margin:0;height:100vh;height:100svh;overflow:hidden;position:relative}
-#stage{position:absolute;inset:0;touch-action:none;cursor:grab;outline:0}
-#stage.moving{cursor:grabbing}
-#stage:focus-visible{outline:1px solid var(--muted);outline-offset:-1px}
-canvas{position:absolute;inset:0;width:100%;height:100%}
-#orbit{pointer-events:none}
-/* The panels let the pointer through to the globe; only what they hold takes it back. */
-main{position:absolute;inset:0;pointer-events:none;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:16px}
-#panel{width:min(100%,40ch)}
-#panel a,#panel button,#panel input,#read{pointer-events:auto}
-#foot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
-#read{width:min(100%,52ch)}
-#r-sgp4,#r-net{white-space:pre}
-#side{margin-left:auto;text-align:right}
+body{margin:0;min-height:100vh;min-height:100svh;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(260px,1fr) auto auto}
 h1{margin:0;font:inherit}
 p{margin:0}
-.t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+ul{list-style:none;margin:0;padding:0}
 .m{color:var(--muted)}
 .net{color:var(--net)}
-.gap{margin-bottom:8px}
+.here{color:var(--here)}
+.t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.hide{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 ::selection{background:var(--fg);color:var(--bg)}
 a{color:var(--fg);text-decoration:none;white-space:nowrap}
 a::before,button::before{content:"["}
 a::after,button::after{content:"]"}
 button{font:inherit;color:var(--fg);background:var(--bg);border:0;padding:0;margin:0;cursor:pointer;white-space:nowrap}
-button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
-button:disabled{color:var(--muted);cursor:default}
-@media (hover:hover){a:hover,button:hover:not(:disabled){background:var(--fg);color:var(--bg)}}
+@media (hover:hover){a:hover,button:hover{background:var(--fg);color:var(--bg)}}
 a:focus-visible,button:focus-visible,input:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
-label{display:block}
-input{display:block;width:100%;font:inherit;color:var(--fg);background:var(--bg);border:0;border-bottom:1px solid var(--muted);border-radius:0;padding:2px 0;outline-offset:2px}
+input{display:block;width:100%;font:inherit;color:var(--fg);background:var(--bg);border:0;border-bottom:1px solid var(--muted);border-radius:0;padding:2px 0}
 input::placeholder{color:var(--muted)}
-ul{list-style:none;margin:0;padding:0}
+
+#top,#read,#forecast{width:var(--col);margin-inline:auto}
+#top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding-block:12px 4px}
+#search{position:relative;flex:1 1 16ch;min-width:0}
+#drop{position:absolute;top:100%;left:0;right:0;z-index:3;background:var(--bg)}
 #hits button{display:block;width:100%;text-align:left;overflow:hidden;text-overflow:ellipsis}
-#scale{display:flex;flex-direction:column;align-items:flex-end}
+
+#stage{position:relative;overflow:hidden;touch-action:none;cursor:grab;outline:0}
+#stage.moving{cursor:grabbing}
+#stage:focus-visible{outline:1px solid var(--muted);outline-offset:-1px}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%}
+#orbit{pointer-events:none}
+#note,#scale{position:absolute;bottom:8px;pointer-events:none}
+#note{left:calc((100% - var(--col))/2);max-width:60%}
+#note span{display:table}
+#scale{right:calc((100% - var(--col))/2);display:flex;flex-direction:column;align-items:flex-end}
 #bar{display:block;height:2px;background:var(--fg)}
+/* Too narrow for both captions on one line, so the scale moves to the top corner. */
+#stage{container-type:inline-size}
+@container (max-width:340px){#scale{top:8px;bottom:auto;right:16px}}
+
+#read{padding-block:8px;display:grid;gap:0 24px}
+#r-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 16px}
+#r-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#r-tools{display:flex;gap:8px}
+#time{display:flex;align-items:center;gap:8px}
+#r-plus{white-space:nowrap}
+#r-sgp4,#r-net,#r-gap{white-space:pre}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1 1 0;width:auto;min-width:0;height:24px;padding:0;border:0;background:transparent;cursor:ew-resize}
+input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--muted)}
+input[type=range]::-moz-range-track{height:1px;background:var(--muted)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:16px;margin-top:-8px;background:var(--fg);border:0;border-radius:0}
+input[type=range]::-moz-range-thumb{width:8px;height:16px;background:var(--fg);border:0;border-radius:0}
+
+#forecast{padding-block:4px 12px}
+#map{position:relative;aspect-ratio:2.73;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none}
+#map canvas{position:absolute;inset:0;width:100%;height:100%}
+#map-lines{pointer-events:none}
+#map-src{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 16px}
+#legend{white-space:nowrap}
+
 /* A phone's thumb needs more than a line of text, and a smaller input font makes iOS zoom the page. */
-@media (pointer:coarse){button,a{padding:6px 2px}input{font-size:16px}#hits button{padding:8px 2px}}
-@media (max-width:699px){#foot{flex-direction:column-reverse;align-items:stretch}#side{margin:0}#hint{display:none}}
-@media (max-height:500px){main{display:block}#panel{position:absolute;top:16px;left:16px;width:40ch}#foot{position:absolute;top:16px;right:16px;bottom:16px;flex-direction:column-reverse;align-items:flex-end;justify-content:flex-start;width:calc(100% - 40ch - 64px)}#side{margin:0}#hint{display:none}}
+@media (pointer:coarse){
+  button,a{padding:6px 2px}
+  #find{font-size:16px}
+  #hits button{padding:8px 2px}
+  input[type=range]{height:32px}
+  input[type=range]::-webkit-slider-thumb{width:16px;height:24px;margin-top:-12px}
+  input[type=range]::-moz-range-thumb{width:16px;height:24px}
+}
+/* Wide enough, the picked object's numbers sit beside its controls, which leaves the globe more height. */
+@media (min-width:900px) and (min-height:501px){
+  #read{grid-template-columns:minmax(0,1fr) auto}
+  #r-left{grid-column:1}
+  #r-right{grid-column:2;grid-row:1}
+}
+/* A phone on its side has no height to stack in, so the map moves beside the globe. */
+@media (max-height:500px) and (orientation:landscape){
+  body{grid-template-columns:minmax(0,1fr) minmax(0,46%);grid-template-rows:auto auto 1fr}
+  #stage{grid-column:1;grid-row:1/4;position:sticky;top:0;height:100vh;height:100svh}
+  #note{left:16px}
+  #scale{right:16px}
+  #top,#read,#forecast{grid-column:2;width:auto;margin-inline:16px}
+  #top{grid-row:1}
+  #read{grid-row:2}
+  #forecast{grid-row:3}
+}
 </style>
 </head>
 <body>
+<header id="top">
+  <a href="./">home</a>
+  <h1>earth in 3d</h1>
+  <div id="search">
+    <label for="find" class="hide">find a satellite by name or number</label>
+    <input id="find" type="search" autocomplete="off" spellcheck="false" placeholder="find a satellite">
+    <div id="drop">
+      <ul id="hits"></ul>
+      <p id="say" class="m" role="status"></p>
+    </div>
+  </div>
+</header>
 <div id="stage" tabindex="0" role="application" aria-label="The Earth. Drag or use the arrow keys to turn, scroll or use plus and minus to zoom, Escape clears the satellite.">
   <canvas id="sky" aria-hidden="true"></canvas>
   <canvas id="orbit" aria-hidden="true"></canvas>
+  <p id="note" class="m"><span class="t" id="hint">drag to turn, tap a dot</span><span class="t" id="cloud-note" hidden></span><span class="t" id="count"></span></p>
+  <p id="scale" hidden><span class="t m" id="scale-text"></span><span id="bar"></span></p>
 </div>
-<main>
-  <div id="panel">
-    <p class="gap"><span class="t"><a href="./">home</a></span></p>
-    <h1 class="gap"><span class="t">earth in 3d</span></h1>
-    <label for="find"><span class="t m">find a satellite by name or number</span></label>
-    <input id="find" type="search" autocomplete="off" spellcheck="false" placeholder="ISS, STARLINK, 25544">
-    <ul id="hits"></ul>
-    <p id="say" class="gap" role="status"><span class="t m"></span></p>
-    <p><span class="t m">time</span> <span id="times"><button data-days="0" aria-pressed="true">now</button> <button data-days="1" aria-pressed="false">+1d</button> <button data-days="3" aria-pressed="false">+3d</button> <button data-days="7" aria-pressed="false">+7d</button></span></p>
-    <p><span class="t m">clouds</span> <span id="sources"><button data-source="meteo" aria-pressed="true">open-meteo</button> <button data-source="model" aria-pressed="false" disabled>my model</button></span></p>
-    <p id="cloud-note"><span class="t m"></span></p>
-  </div>
-  <div id="foot">
-    <section id="read" aria-label="The picked satellite" hidden>
-      <p><span class="t" id="r-name"></span></p>
-      <p><span class="t m" id="r-at"></span></p>
-      <p><span class="t" id="r-sgp4"></span></p>
-      <p role="status"><span class="t" id="r-net"></span></p>
-      <p id="r-gap-row"><span class="t" id="r-gap"></span></p>
-      <p id="r-miss-row" hidden><span class="t m" id="r-miss"></span></p>
-      <p><button id="r-zoom">zoom to it</button> <button id="r-clear">clear</button></p>
-    </section>
-    <div id="side">
-      <p id="scale"><span class="t m" id="scale-text"></span><span id="bar"></span></p>
-      <p id="hint"><span class="t m">drag to turn, scroll to zoom, click a dot</span></p>
-      <p><span class="t m" id="count"></span></p>
+<section id="read" aria-label="The picked satellite" hidden>
+  <div id="r-left">
+    <div id="r-head">
+      <p id="r-name"></p>
+      <p id="r-tools"><button id="r-zoom" type="button">zoom to it</button><button id="r-clear" type="button">clear</button></p>
     </div>
+    <div id="time">
+      <label for="when" class="hide">days ahead</label>
+      <input id="when" type="range" min="0" max="7" step="0.05" value="0">
+      <span id="r-plus" class="m">now</span>
+    </div>
+    <p id="r-at" class="m"></p>
   </div>
-</main>
+  <div id="r-right">
+    <p id="r-sgp4"></p>
+    <p id="r-net" role="status"></p>
+    <p id="r-gap-row"><span id="r-gap"></span></p>
+    <p id="r-miss-row" class="m" hidden><span id="r-miss"></span></p>
+  </div>
+</section>
+<section id="forecast" aria-label="Cloud forecast">
+  <div id="map" role="img" aria-label="Cloud forecast map, loading">
+    <canvas id="map-glyphs" aria-hidden="true"></canvas>
+    <canvas id="map-lines" aria-hidden="true"></canvas>
+  </div>
+  <p id="map-read"><span id="map-mark" class="here">+ </span><span id="map-text"></span></p>
+  <p id="map-src" class="m"><span><span id="map-net" class="net" hidden>network </span><span id="map-from">loading forecast</span></span><span id="legend">0 .:-=+*#%@ 100</span></p>
+</section>
 <script src="orbits.js"></script>
 <script src="planet.js"></script>
 <script src="vendor/sgp4.js"></script>
 <script src="correct.js"></script>
 <script src="catalog.js"></script>
+<script src="mapmath.js"></script>
 <script src="earth.js"></script>
+<script src="earthmap.js"></script>
+<script src="earthpick.js"></script>
 </body>
 </html>
