@@ -11,20 +11,19 @@ async (page) => {
   const sizes = [[280,653],[320,568],[320,640],[360,740],[390,844],[430,932],[568,320],[667,375],[844,390],[932,430],[600,960],[768,1024],[820,1180],[1024,768],[1024,1366],[1280,600],[1280,800],[1440,900],[1920,1080],[2560,1440],[3440,1440],[900,500],[1000,1100]];
   const probe = () => {
     const rect = el => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top + scrollY, r: r.right, b: r.bottom + scrollY }; };
-    const copy = rect(document.getElementById('copy')), note = rect(document.getElementById('note')), read = rect(document.getElementById('reading')), link = rect(document.getElementById('what'));
-    const ink = [...document.querySelectorAll('#copy .t, #note .t, #reading .t, #what .t')].map(e => e.getBoundingClientRect()).filter(r => r.width);
+    const copy = rect(document.getElementById('copy')), note = rect(document.getElementById('note')), read = rect(document.getElementById('reading')), link = rect(document.getElementById('what')), spinBox = rect(document.getElementById('spin'));
+    const ink = [...document.querySelectorAll('#copy .t, #note .t, #reading .t, #what .t, #spin .t')].map(e => e.getBoundingClientRect()).filter(r => r.width);
     const inkR = Math.max(...ink.map(r => r.right)), inkL = Math.min(...ink.map(r => r.left));
     const o = globe();
     const hit = b => { const dx = Math.max(b.l - o.x, 0, o.x - b.r), dy = Math.max(b.t - o.y, 0, o.y - b.b); return Math.hypot(dx, dy) < o.R * RIM - 1; };
     const over = (a, b) => !(a.r <= b.l || b.r <= a.l || a.b <= b.t || b.b <= a.t);
-    const readInk = rect(document.querySelector('#reading .split'));
     const heads = [...document.querySelectorAll('#copy th .t')].map(e => e.getBoundingClientRect());
     return {
       headGap: Math.min(...heads.slice(1).map((r, i) => r.left - heads[i].right)),
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       inkPast: Math.max(0, Math.round(inkR - innerWidth + 8), Math.round(8 - inkL)),
       font: parseFloat(getComputedStyle(document.documentElement).fontSize),
-      globeHitsCopy: hit(copy), globeHitsNote: hit(note), globeHitsReading: hit(read), globeHitsLink: hit(link), copyHitsNote: over(copy, note),
+      globeHitsCopy: hit(copy), globeHitsNote: hit(note), globeHitsReading: hit(read), globeHitsLink: hit(link), globeHitsSpin: hit(spinBox), spinHitsReading: over(spinBox, read), spinHitsCopy: over(spinBox, copy), spinHitsLink: over(spinBox, link), copyHitsNote: over(copy, note),
       linkHitsCopy: over(link, copy), linkHitsReading: over(link, read), readingHitsCopy: over(read, copy),
       centred: Math.abs((read.l + read.r) / 2 - (column.matches ? o.x : document.documentElement.clientWidth / 2)) < 2,
       copyCentred: side.matches || Math.abs((copy.l + copy.r) / 2 - o.x) < 2,
@@ -47,7 +46,7 @@ async (page) => {
     if (p.overflowX > 0) bad.push('overflowX ' + p.overflowX);
     if (p.inkPast) bad.push('text within 8px of edge by ' + p.inkPast);
     if (p.headGap < 4) bad.push('table headers touch, gap ' + p.headGap);
-    for (const k of ['globeHitsCopy', 'globeHitsNote', 'globeHitsReading', 'globeHitsLink', 'copyHitsNote', 'linkHitsCopy', 'linkHitsReading', 'readingHitsCopy', 'offTop']) if (p[k]) bad.push(k);
+    for (const k of ['globeHitsCopy', 'globeHitsNote', 'globeHitsReading', 'globeHitsLink', 'globeHitsSpin', 'spinHitsReading', 'spinHitsCopy', 'spinHitsLink', 'copyHitsNote', 'linkHitsCopy', 'linkHitsReading', 'readingHitsCopy', 'offTop']) if (p[k]) bad.push(k);
     if (!p.centred) bad.push('reading not centred');
     if (!p.copyCentred) bad.push('text not under planet');
     if (!p.noteInColumn) bad.push('note off the planet axis');

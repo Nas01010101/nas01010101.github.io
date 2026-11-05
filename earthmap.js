@@ -29,7 +29,7 @@ function fitMap() {
   const w = mapEl.clientWidth, h = mapEl.clientHeight, ratio = scale();
   if (!w || !h || (w === mapW && h === mapH && ratio === mapDpr)) return;
   mapW = w; mapH = h; mapDpr = ratio;
-  const fs = Math.max(6, Math.min(w / 90 / .6, 10)) * ratio, font = monoFont(fs);
+  const fs = Math.max(5, Math.min(w / 120 / .6, 8)) * ratio, font = monoFont(fs);
   mapCv.width = linesCv.width = Math.round(w * ratio); mapCv.height = linesCv.height = Math.round(h * ratio);
   mapCtx.font = font;
   mCw = Math.ceil(mapCtx.measureText('M').width); mCh = Math.ceil(fs * 1.2);

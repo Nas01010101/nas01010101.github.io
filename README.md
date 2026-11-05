@@ -2,15 +2,15 @@
 
 Personal site. Static HTML, no build step, no dependencies.
 
-- `index.html`: the page. Its comment above `#reading` marks the weekly reading edit.
+- `index.html`: the page.
+- `reading.js`: the weekly reading list, newest first. The home page shows the first entry. Every Tuesday: add a line at the top.
+- `reading.html`: every paper on that list.
 - `flow.html`: the data flow and scores behind the planet, linked from "what am i seeing here".
-- `earth.html`, `earth.js`: the Earth in 3D with every object at its true height, opened by clicking the planet. Search or click a satellite to see where SGP4 and the network put it.
-- `planet.js`: the glyph planet and cloud frames used by the 3D view.
-- `catalog.js`: reads the day's element file and searches it by name or number.
-- `correct.js`: reads `corrections.bin` and applies a network correction to an SGP4 position.
-- `vendor/sgp4.js`: satellite.js 7.1.0 propagation, bundled with esbuild, MIT.
+- `earth.html`, `earth.js`, `earthmap.js`, `mapmath.js`: the Earth in 3D with every object at its true height and the forecast map below it, opened by clicking the planet or the "pale blue dot" link.
+- `planet.js`: the glyph planet, land mask and cloud frames used by the home page and the 3D view.
 - `orbits.js`: propagates the satellites in `sats.bin`.
 - `scripts/update_sats.py`: rebuilds `sats.bin` from CelesTrak.
+- `scripts/land_mask.py`: rewrites the land mask in `planet.js` from Natural Earth.
 
 Clouds, rain, scores, element files and corrections come from [ascii-earth-forecast](https://github.com/Nas01010101/ascii-earth-forecast), read from its `data` branch. `sats.bin` here is the fallback when that branch is unavailable.
 

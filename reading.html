@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Reading</title>
+<meta name="description" content="Papers Anas Elghoudane has read, newest first, with title and author.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+*{box-sizing:border-box}
+html{background:var(--bg);color:var(--fg);font:clamp(10px,calc((100vw - 32px) / 24),14px)/1.714 var(--mono);-webkit-text-size-adjust:100%}
+body{margin:0}
+main{padding:32px 16px;width:min(100%,84ch);margin:0 auto}
+h1{margin:1.714rem 0 0;font:inherit}
+p{margin:0}
+ol{margin:1.714rem 0 0;padding:0;list-style:none}
+li{margin-bottom:1.714rem}
+.m{color:var(--muted)}
+a{color:var(--fg);text-decoration:none;white-space:nowrap}
+a::before{content:"["}a::after{content:"]"}
+/* Paper titles run past the measure, so this one link may wrap. */
+a.title{white-space:normal}
+@media (hover:hover){a:hover{background:var(--fg);color:var(--bg)}}
+a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
+::selection{background:var(--fg);color:var(--bg)}
+</style>
+</head>
+<body>
+<main>
+  <p><a href="./">back to the planet</a></p>
+  <h1>reading</h1>
+  <ol id="papers"></ol>
+  <noscript><p class="m">The list needs JavaScript.</p></noscript>
+</main>
+<script src="reading.js"></script>
+<script>
+'use strict';
+const papers = document.getElementById('papers');
+for (const paper of READING) {
+  const item = document.createElement('li');
+  renderPaper(item, paper);
+  papers.append(item);
+}
+if (!READING.length) {
+  const none = document.createElement('p');
+  none.className = 'm'; none.textContent = 'nothing listed yet';
+  papers.replaceWith(none);
+}
+</script>
+</body>
+</html>

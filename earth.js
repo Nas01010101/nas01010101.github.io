@@ -30,7 +30,7 @@ function fit() {
   const w = stage.clientWidth, h = stage.clientHeight, ratio = scale();
   if (!w || !h || (w === W && h === H && ratio === dpr)) return;
   W = w; H = h; dpr = ratio;
-  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize), fs = (W < 700 ? 8 : 12 * Math.max(1, rem / 14)) * dpr, font = monoFont(fs);
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize), fs = glyphSize(W, rem) * dpr, font = monoFont(fs);
   ctx.font = font;
   cwD = Math.ceil(ctx.measureText('M').width); chD = Math.ceil(fs * 1.2); cw = cwD / dpr; ch = chD / dpr;
   cols = Math.ceil(W / cw); rows = Math.ceil(H / ch);
@@ -73,8 +73,8 @@ function drawPlanet(T) {
     for (let col = 0; col < cols; col++) {
       const dx = (col + .5 - cx) / rx, r2 = dx * dx + ny * ny, i = row * cols + col;
       if (r2 >= 1) {
-        const r = Math.sqrt(r2), glow = (dx * Sx + ny * Sy) / r;
-        if (r < RIM && glow > .1) { g[i] = r < 1.04 ? 1 : DOT; c[i] = OCEAN + (glow > .6 ? 3 : 2); }
+        const r = Math.sqrt(r2), edge = limb(r, (dx * Sx + ny * Sy) / r, ry);
+        if (edge >= 0) { g[i] = edge >> 8; c[i] = edge & 255; }
         continue;
       }
       const z = Math.sqrt(1 - r2), ey = ny * cp + z * sp, ez = z * cp - ny * sp;

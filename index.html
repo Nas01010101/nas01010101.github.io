@@ -19,11 +19,11 @@ main{position:relative;z-index:1;padding:0 16px;min-height:100vh;min-height:100s
 /* Every line of text clears the glyphs behind it, the way a terminal cell would. */
 .t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
 #reading{width:min(100%,70ch);margin:0 auto;padding-top:16px;text-align:center}
-#reading .split{justify-content:center}
 #what{position:absolute;z-index:1;width:max-content;transform:translateX(-50%);text-align:center}
 #note{text-wrap:balance}
-/* The top padding holds the planet and its three-line caption. */
-.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(min(84vw,56vh) + 3.428rem) 0 32px;padding-top:calc(min(84vw,56svh) + 3.428rem)}
+#spin{position:absolute;z-index:1;white-space:nowrap}
+/* The top padding holds the planet, its three-line caption and the line of the link above it. */
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:calc(min(84vw,56vh) + 5.142rem) 0 32px;padding-top:calc(min(84vw,56svh) + 5.142rem)}
 #copy{width:min(100%,39ch)}
 /* The planet sits beside the text on landscape screens and above it on portrait ones; globe() reads the same query. */
 @media (min-width:600px) and (max-aspect-ratio:999/1000){html{font-size:16px}}
@@ -58,16 +58,16 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 <canvas id="sky" aria-hidden="true"></canvas>
 <canvas id="orbit" aria-hidden="true"></canvas>
 <main>
-  <!-- Every Tuesday: replace the paper below. Add hidden to the div while none is listed. -->
+  <!-- Every Tuesday: add the paper at the top of reading.js. -->
   <div id="reading">
-    <p class="split"><span class="t">reading this week</span><span class="t m">updated Tuesdays</span></p>
-    <p><span class="t"><a class="title" href="https://arxiv.org/abs/2410.19964">Understanding Adam Requires Better Rotation Dependent Assumptions</a></span></p>
-    <p><span class="t m">NeurIPS 2025, coauthored by my</span> <span class="t"><a href="https://mitliagkas.github.io/ml-class-fr">IFT3395</a></span> <span class="t m">teacher Ioannis Mitliagkas</span></p>
+    <p><span class="t"><a href="reading.html">reading this week</a></span></p>
+    <div id="paper"></div>
   </div>
   <div id="what">
-    <p><span class="t" aria-hidden="true">↑</span><br><span class="t"><a href="flow.html">what am i seeing here</a></span> <span class="t"><a href="earth.html">earth in 3d</a></span></p>
+    <p><span class="t" aria-hidden="true">↑</span><br><span class="t"><a href="flow.html">what am i seeing here</a></span></p>
     <p id="note"><span class="t m"><span class="here">+</span> <span id="status">Montréal</span><span id="meteo"></span></span></p>
   </div>
+  <div id="spin"><span class="t" aria-hidden="true">↙</span> <span class="t"><a href="earth.html">pale blue dot</a></span></div>
   <div class="hero">
     <div id="copy">
       <h1><span class="t">nas</span></h1>
@@ -96,6 +96,7 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 </main>
 <script src="orbits.js"></script>
 <script src="planet.js"></script>
+<script src="reading.js"></script>
 <script>
 'use strict';
 const cv = document.getElementById('sky'), ctx = cv.getContext('2d');
@@ -104,7 +105,9 @@ const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const lit = new Set();
 let pr = [], cols, rows, cwD, chD, cw, ch, atlas, g, c, pg, pc, stars = [], W = 0, H = 0, dpr = 0, place, boxes;
 
-const copy = document.getElementById('copy'), reading = document.getElementById('reading'), what = document.getElementById('what');
+const copy = document.getElementById('copy'), reading = document.getElementById('reading'), what = document.getElementById('what'), spin = document.getElementById('spin');
+reading.hidden = !READING.length;
+if (READING.length) renderPaper(document.getElementById('paper'), READING[0]);
 const side = matchMedia('(min-width:560px) and (min-aspect-ratio:1/1)');
 const column = matchMedia('(min-width:760px) and (min-aspect-ratio:1/1)');
 const scale = () => Math.min(devicePixelRatio || 1, 2);
@@ -119,9 +122,8 @@ function fitColumn() {
 function build() {
   const size = cv.getBoundingClientRect();
   W = size.width; H = size.height; dpr = scale();
-  // Glyphs grow with the text on large screens, so the planet keeps its texture.
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-  const fs = (W < 700 ? 8 : 12 * Math.max(1, rem / 14)) * dpr;
+  const fs = glyphSize(W, rem) * dpr;
   const font = `${fs}px ${getComputedStyle(document.documentElement).getPropertyValue('--mono')}`;
   ctx.font = font;
   cwD = Math.ceil(ctx.measureText('M').width); chD = Math.ceil(fs * 1.2);
@@ -139,7 +141,8 @@ function build() {
   place = globe();
   what.style.left = `${Math.max(what.offsetWidth / 2 + 8, Math.min(W - what.offsetWidth / 2 - 8, place.x))}px`;
   what.style.top = `${place.y + place.R * RIM}px`;
-  boxes = [copy, reading, what].filter(el => !el.hidden).map(el => { const r = el.getBoundingClientRect(); return { l: r.left - mx, r: r.right + mx, t: r.top + scrollY - my, b: r.bottom + scrollY + my }; });
+  placeSpin(head());
+  boxes = [copy, reading, what, spin].filter(el => !el.hidden).map(el => { const r = el.getBoundingClientRect(); return { l: r.left - mx, r: r.right + mx, t: r.top + scrollY - my, b: r.bottom + scrollY + my }; });
   // Counted by area. Text and planet cover most of a phone screen, so phones need more candidates to show any.
   stars = Array.from({ length: Math.round(W * H / (W < 700 ? 6600 : 23040)) }, (_, i) => ({
     x: hash(i, 1, 9), y: hash(i, 2, 8), b: hash(i, 7, 1), ph: hash(i, 4, 6) * 6.28, sp: .4 + 1.4 * hash(i, 5, 5),
@@ -174,16 +177,26 @@ function drawStars(t) {
     } else put(col, row, st.b > .8 ? PLUS : DOT, ink);
   }
 }
+const head = () => (reading.hidden ? 0 : reading.getBoundingClientRect().bottom + scrollY);
+// Up and to the right of the planet, just outside its atmosphere, and under the reading.
+function placeSpin(floor) {
+  const left = Math.min(place.x + place.R * .71, W - spin.offsetWidth - 8), dx = Math.max(0, left - place.x), edge = place.R * RIM;
+  spin.style.left = `${left}px`;
+  spin.style.top = `${Math.max(floor + 4, place.y - (dx < edge ? Math.sqrt(edge * edge - dx * dx) : 0) - spin.offsetHeight)}px`;
+}
 function globe() {
-  const text = copy.getBoundingClientRect(), top = text.top + scrollY, head = reading.hidden ? 0 : reading.getBoundingClientRect().bottom + scrollY;
+  const text = copy.getBoundingClientRect(), top = text.top + scrollY, tag = spin.offsetHeight;
+  let above = head();
   // The link under the planet takes its own height out of the room.
   const link = what.offsetHeight + 4;
-  if (!side.matches) { const R = Math.min(W * .34, ((top - head - link) / 2 - 8) / RIM); return { x: W / 2, y: head + 8 + R * RIM + Math.max(0, (top - head - link - 16 - 2 * R * RIM) / 2), R }; }
+  if (!side.matches) { above += tag; const R = Math.min(W * .34, ((top - above - link) / 2 - 8) / RIM); return { x: W / 2, y: above + 8 + R * RIM + Math.max(0, (top - above - link - 16 - 2 * R * RIM) / 2), R }; }
   // Beside the text: under the reading and clear of the text column.
   const view = Math.min(H, Math.max(innerHeight, top + text.height));
-  const room = view - link - head - 16;
-  const R = Math.min(W * .19, view * .35, room / 2 / RIM, (W - text.right) / 2 / RIM - 8);
-  return { x: planetX(), y: head + 8 + R * RIM + Math.max(0, (room - 2 * R * RIM) / 2), R };
+  const fit = space => Math.min(W * .19, view * .35, space / 2 / RIM, (W - text.right) / 2 / RIM - 8), x = planetX();
+  let room = view - link - above - 16, R = fit(room);
+  // No room for the link beside the planet's shoulder, so it takes a row above the planet.
+  if (x + R * .71 + spin.offsetWidth + 8 > W) { above += tag; room -= tag; R = fit(room); }
+  return { x, y: above + 8 + R * RIM + Math.max(0, (room - 2 * R * RIM) / 2), R };
 }
 // Axial lean, and a camera a little north of the equator.
 const COS_LEAN = Math.cos(.41), SIN_LEAN = Math.sin(.41), COS_PITCH = Math.cos(.35), SIN_PITCH = Math.sin(.35);
@@ -191,8 +204,8 @@ const toScreen = (qx, ey, ez) => {
   const qy = ey * COS_PITCH - ez * SIN_PITCH;
   return [qx * COS_LEAN + qy * SIN_LEAN, qy * COS_LEAN - qx * SIN_LEAN, ey * SIN_PITCH + ez * COS_PITCH];
 };
-// Earth, sun and satellites sit where they really are right now; only the camera moves, once around in 90 s.
-const viewAt = (sun, t) => sun.lon + .65 - (t - 40) * 2 * Math.PI / 90;
+// Earth, sun and satellites sit where they really are right now; only the camera moves, once around in 4 minutes.
+const viewAt = (sun, t) => sun.lon + .65 - (t - 40) * 2 * Math.PI / 240;
 function drawPlanet(x, y, R, t) {
   const rx = R / cw, ry = R / ch, cx = x / cw, cy = y / ch;
   const ct = COS_LEAN, st = SIN_LEAN, cp = COS_PITCH, sp = SIN_PITCH;
@@ -201,9 +214,9 @@ function drawPlanet(x, y, R, t) {
   for (let row = Math.max(0, Math.floor(cy - ry * RIM)); row <= Math.min(rows - 1, Math.ceil(cy + ry * RIM)); row++) {
     for (let col = Math.max(0, Math.floor(cx - rx * RIM)); col <= Math.min(cols - 1, Math.ceil(cx + rx * RIM)); col++) {
       const dx = (col + .5 - cx) / rx, ny = -(row + .5 - cy) / ry, r2 = dx * dx + ny * ny, i = row * cols + col;
-      if (r2 >= 1) { // Thin atmosphere, only on the lit limb.
-        const r = Math.sqrt(r2), glow = (dx * Sx + ny * Sy) / r;
-        if (r < RIM && glow > .1) { g[i] = r < 1.04 ? 1 : DOT; c[i] = OCEAN + (glow > .6 ? 3 : 2); }
+      if (r2 >= 1) {
+        const r = Math.sqrt(r2), edge = limb(r, (dx * Sx + ny * Sy) / r, ry);
+        if (edge >= 0) { g[i] = edge >> 8; c[i] = edge & 255; }
         continue;
       }
       const z = Math.sqrt(1 - r2), shade = smooth(-.12, .62, dx * Sx + ny * Sy + z * Sz) * (.62 + .38 * z);
