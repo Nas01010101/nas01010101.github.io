@@ -1,8 +1,15 @@
 // Geometry of the forecast map under the globe. Angles in radians. Classic script: its names are globals for the viewer.
 'use strict';
 const MAP_RAD = Math.PI / 180;
-// Polar caps look like cloud in glyphs, and cutting them leaves a wider, shorter map.
-const MAP_TOP = 66 * MAP_RAD;
+// Equal Earth (Savric, Patterson, Jenny 2018): every place keeps its true share of the map's area, and the whole globe fits.
+const EE_A1 = 1.340264, EE_A2 = -.081106, EE_A3 = .000893, EE_A4 = .003796, EE_M = Math.sqrt(3) / 2;
+const eeY = t => { const t2 = t * t, t6 = t2 * t2 * t2; return t * (EE_A1 + EE_A2 * t2 + t6 * (EE_A3 + EE_A4 * t2)); };
+const eeDen = t => { const t2 = t * t, t6 = t2 * t2 * t2; return EE_A1 + 3 * EE_A2 * t2 + t6 * (7 * EE_A3 + 9 * EE_A4 * t2); };
+const EE_X = Math.PI / (EE_M * EE_A1), EE_Y = eeY(Math.PI / 3);
+// earth.html's #map aspect-ratio repeats this number; a test holds them equal.
+const MAP_RATIO = EE_X / EE_Y;
+// Near the poles longitude neighbours are close together, so extremes there are noise.
+const MARK_TOP = 75 * MAP_RAD;
 // A geostationary shell, 6.6 Earth radii out, has to fit on screen.
 const ZOOM_MIN = .1;
 const GRID_ROWS = 24, GRID_COLS = 48;
@@ -10,26 +17,48 @@ const GRID_ROWS = 24, GRID_COLS = 48;
 // Longitude as a share of the way round from 180W, in 0..1.
 const turnShare = lon => ((lon / (2 * Math.PI) + .5) % 1 + 1) % 1;
 
-// The place at the centre of a map cell; row 0 is the north edge.
-function mapPlace(col, row, cols, rows) {
-  return { lat: MAP_TOP * (1 - 2 * (row + .5) / rows), lon: (2 * (col + .5) / cols - 1) * Math.PI };
+// A place as shares of the map's width and height. Longitude in -pi..pi, not wrapped here so the seam keeps both its edges.
+function project(lat, lon) {
+  const t = Math.asin(EE_M * Math.sin(lat));
+  return { u: (lon * Math.cos(t) / (EE_M * eeDen(t)) / EE_X + 1) / 2, v: (1 - eeY(t) / EE_Y) / 2 };
 }
+const projectWrapped = (lat, lon) => project(lat, turnShare(lon) * 2 * Math.PI - Math.PI);
 
-function mapCell(lat, lon, cols, rows) {
-  if (Math.abs(lat) >= MAP_TOP) return null;
+// The place under shares of the map; |lon| past pi means off the outline. dy/dt is eeDen, so Newton needs no other derivative.
+function inverse(u, v) {
+  const y = (1 - 2 * v) * EE_Y;
+  let t = y / EE_A1;
+  for (let k = 0; k < 5; k++) t -= (eeY(t) - y) / eeDen(t);
   return {
-    col: Math.min(cols - 1, Math.floor(turnShare(lon) * cols)),
-    row: Math.min(rows - 1, Math.floor((1 - lat / MAP_TOP) / 2 * rows)),
+    lat: Math.asin(Math.max(-1, Math.min(1, Math.sin(t) / EE_M))),
+    lon: (2 * u - 1) * EE_X * EE_M * eeDen(t) / Math.cos(t),
   };
 }
 
-// CSS pixels of a place on a map w wide and h tall, for lines drawn over the glyphs.
-const mapPoint = (lat, lon, w, h) => ({ x: turnShare(lon) * w, y: (1 - lat / MAP_TOP) / 2 * h });
+// The place at the centre of a map cell; row 0 is the north edge. Null when the cell is off the outline.
+function mapPlace(col, row, cols, rows) {
+  const place = inverse((col + .5) / cols, (row + .5) / rows);
+  return Math.abs(place.lon) > Math.PI ? null : place;
+}
 
-// The place under a pixel of that map, held inside the map's edges.
+function mapCell(lat, lon, cols, rows) {
+  const { u, v } = projectWrapped(lat, lon);
+  return { col: Math.min(cols - 1, Math.floor(u * cols)), row: Math.min(rows - 1, Math.floor(v * rows)) };
+}
+
+// CSS pixels of a place on a map w wide and h tall, for lines drawn over the glyphs.
+function mapPoint(lat, lon, w, h) {
+  const { u, v } = projectWrapped(lat, lon);
+  return { x: u * w, y: v * h };
+}
+
+// Whether a pixel of that map lies inside the Earth's outline.
+const mapOn = (x, y, w, h) => Math.abs(inverse(x / w, y / h).lon) <= Math.PI;
+
+// The place under a pixel of that map, held inside the map's edges and the outline.
 function mapAt(x, y, w, h) {
-  const across = Math.max(0, Math.min(1, x / w)), down = Math.max(0, Math.min(1, y / h));
-  return { lat: (1 - 2 * down) * MAP_TOP, lon: (2 * across - 1) * Math.PI };
+  const place = inverse(Math.max(0, Math.min(1, x / w)), Math.max(0, Math.min(1, y / h)));
+  return { lat: place.lat, lon: Math.max(-Math.PI, Math.min(Math.PI, place.lon)) };
 }
 
 // The grid cell holding a place, south to north and west to east, as forecast/weather.py picks it.
@@ -87,12 +116,13 @@ function terrainBand(lat, lon) {
 const CROSSINGS = ['', 'lt', 'tr', 'lr', 'rb', '', 'tb', 'lb', 'lb', 'tb', '', 'rb', 'lr', 'tr', 'lt', ''];
 
 // Lines of equal value over the map, every `step`, as flat u0 v0 u1 v1 runs in shares of its width and height.
+// Each crossing is traced on a regular lattice, then projected, so the shared ends of two runs stay equal.
 // The bilinear field has kinks along its grid lines, and the smoothing keeps them out of the lines.
 function contours(grid, step, rows = GRID_ROWS, cols = GRID_COLS, density = 4) {
-  const nu = cols * density, nv = Math.round(rows * density * MAP_TOP / (Math.PI / 2));
+  const nu = cols * density, nv = rows * density;
   let now = new Float64Array(nu * (nv + 1)), lo = Infinity, hi = -Infinity;
   for (let j = 0; j <= nv; j++) {
-    for (let i = 0; i < nu; i++) now[j * nu + i] = fieldAt(grid, MAP_TOP * (1 - 2 * j / nv), (2 * i / nu - 1) * Math.PI, rows, cols);
+    for (let i = 0; i < nu; i++) now[j * nu + i] = fieldAt(grid, Math.PI / 2 * (1 - 2 * j / nv), (2 * i / nu - 1) * Math.PI, rows, cols);
   }
   for (let pass = 0; pass < 3; pass++) {
     const next = new Float64Array(now.length);
@@ -107,6 +137,7 @@ function contours(grid, step, rows = GRID_ROWS, cols = GRID_COLS, density = 4) {
   }
   for (const value of now) { lo = Math.min(lo, value); hi = Math.max(hi, value); }
   const out = [];
+  const put = (across, down) => { const { u, v } = project(Math.PI / 2 * (1 - 2 * down), (2 * across - 1) * Math.PI); out.push(u, v); };
   for (let level = Math.ceil(lo / step) * step; level <= hi; level += step) {
     for (let j = 0; j < nv; j++) {
       for (let i = 0; i < nu; i++) {
@@ -118,10 +149,10 @@ function contours(grid, step, rows = GRID_ROWS, cols = GRID_COLS, density = 4) {
         if (!pairs) pairs = (code === 5) === ((a + b + c + d) / 4 > level) ? 'trlb' : 'ltrb';
         for (let k = 0; k < pairs.length; k++) {
           const edge = pairs[k];
-          if (edge === 't') out.push((i + (level - a) / (b - a)) / nu, j / nv);
-          else if (edge === 'b') out.push((i + (level - d) / (c - d)) / nu, (j + 1) / nv);
-          else if (edge === 'l') out.push(i / nu, (j + (level - a) / (d - a)) / nv);
-          else out.push((i + 1) / nu, (j + (level - b) / (c - b)) / nv);
+          if (edge === 't') put((i + (level - a) / (b - a)) / nu, j / nv);
+          else if (edge === 'b') put((i + (level - d) / (c - d)) / nu, (j + 1) / nv);
+          else if (edge === 'l') put(i / nu, (j + (level - a) / (d - a)) / nv);
+          else put((i + 1) / nu, (j + (level - b) / (c - b)) / nv);
         }
       }
     }
@@ -134,7 +165,7 @@ function pressureMarks(grid, rows = GRID_ROWS, cols = GRID_COLS, clear = 3, apar
   const found = [];
   for (let j = 0; j < rows; j++) {
     const lat = ((j + .5) / rows - .5) * Math.PI;
-    if (Math.abs(lat) >= MAP_TOP) continue;
+    if (Math.abs(lat) >= MARK_TOP) continue;
     for (let i = 0; i < cols; i++) {
       const value = grid[j * cols + i];
       let top = true, bottom = true, ring = 0, count = 0;
@@ -193,4 +224,4 @@ function sourceWords(nets, hasTemp, hasPressure) {
   return made.join(', ');
 }
 
-if (typeof module !== 'undefined') module.exports = { MAP_TOP, ZOOM_MIN, BANDS, BANDS_DIM, mapPlace, mapCell, mapPoint, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, terrainBand, contours, pressureMarks, placeMarks, sourceWords };
+if (typeof module !== 'undefined') module.exports = { MAP_RATIO, ZOOM_MIN, BANDS, BANDS_DIM, mapPlace, mapCell, mapPoint, mapOn, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, terrainBand, contours, pressureMarks, placeMarks, sourceWords };

@@ -1,23 +1,53 @@
 // The viewer's pure parts: map geometry, the choice of weather field, the height bands and the isobars.
 const test = require('node:test'), assert = require('node:assert');
-const { MAP_TOP, ZOOM_MIN, BANDS, BANDS_DIM, placeMarks, mapPlace, mapCell, mapPoint, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, terrainBand, contours, pressureMarks, sourceWords } = require('../mapmath.js');
+const fs = require('node:fs'), path = require('node:path');
+const { MAP_RATIO, ZOOM_MIN, BANDS, BANDS_DIM, placeMarks, mapPlace, mapCell, mapPoint, mapOn, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, terrainBand, contours, pressureMarks, sourceWords } = require('../mapmath.js');
+const { dayFacts, placeWords, modelWords, fleetFacts } = require('../earthinfo.js');
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`);
 const DEG = Math.PI / 180;
 
-test('a map cell and its place round trip inside the clipped band', () => {
-  const cols = 90, rows = 16;
-  for (const [col, row] of [[0, 0], [89, 15], [45, 8], [14, 3]]) {
-    const { lat, lon } = mapPlace(col, row, cols, rows);
-    assert.ok(Math.abs(lat) < MAP_TOP && Math.abs(lon) < Math.PI);
-    assert.deepStrictEqual(mapCell(lat, lon, cols, rows), { col, row });
+test('a map cell and its place round trip, and corners lie off the outline', () => {
+  const cols = 90, rows = 44;
+  for (const [col, row] of [[45, 0], [45, 43], [45, 22], [14, 10], [75, 30], [1, 22], [88, 22]]) {
+    const place = mapPlace(col, row, cols, rows);
+    assert.ok(place, `${col},${row} is on the map`);
+    assert.ok(Math.abs(place.lat) < Math.PI / 2 && Math.abs(place.lon) <= Math.PI);
+    assert.deepStrictEqual(mapCell(place.lat, place.lon, cols, rows), { col, row });
   }
+  for (const [col, row] of [[0, 0], [89, 0], [0, 43], [89, 43]]) assert.equal(mapPlace(col, row, cols, rows), null);
   // Row 0 is the north edge, as on any map.
-  assert.ok(mapPlace(0, 0, cols, rows).lat > 0 && mapPlace(0, 15, cols, rows).lat < 0);
-  assert.equal(mapCell(70 * DEG, 0, cols, rows), null);
-  assert.equal(mapCell(-70 * DEG, 0, cols, rows), null);
+  assert.ok(mapPlace(45, 0, cols, rows).lat > 0 && mapPlace(45, 43, cols, rows).lat < 0);
   // Longitudes wrap rather than fall off the sides.
   assert.deepStrictEqual(mapCell(0, 3 * Math.PI, cols, rows), mapCell(0, Math.PI, cols, rows));
+});
+
+test('the whole Earth is on the map, and places keep their true share of its area', () => {
+  // Monte Carlo over the map: the share of the outline's cells in a latitude band equals that band's share of a sphere.
+  const cols = 800, rows = Math.round(cols / MAP_RATIO);
+  let on = 0, tropics = 0, polar = 0;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const place = mapPlace(col, row, cols, rows);
+      if (!place) continue;
+      on++;
+      if (Math.abs(place.lat) < 30 * DEG) tropics++;
+      if (Math.abs(place.lat) > 60 * DEG) polar++;
+    }
+  }
+  close(tropics / on, .5, .002);
+  close(polar / on, 1 - Math.sin(60 * DEG), .002);
+  // The poles reach the top and bottom edges.
+  close(mapPoint(Math.PI / 2, 0, 1, 1).y, 0, 1e-9);
+  close(mapPoint(-Math.PI / 2, 0, 1, 1).y, 1, 1e-9);
+  // Equator's ends reach the sides.
+  close(mapPoint(0, -Math.PI, 1, 1).x, 0, 1e-9);
+  assert.ok(mapOn(.5, .5, 1, 1) && !mapOn(.01, .01, 1, 1));
+});
+
+test('the page gives the map the projection\'s own shape', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'earth.html'), 'utf8'), [, ratio] = page.match(/--ratio:([\d.]+)/);
+  close(Number(ratio), MAP_RATIO, 1e-3);
 });
 
 test('the nearest grid cell is the one the pipeline reports for a place', () => {
@@ -92,8 +122,9 @@ test('the camera can pull back far enough to hold a geostationary orbit', () => 
 test('a pixel of the map gives back the place drawn there, and stays on the map', () => {
   const lat = 45.5 * DEG, lon = -73.57 * DEG, { x, y } = mapPoint(lat, lon, 900, 330), back = mapAt(x, y, 900, 330);
   assert.ok(Math.abs(back.lat - lat) < 1e-9 && Math.abs(back.lon - lon) < 1e-9);
-  assert.deepEqual(mapAt(-50, -50, 900, 330), { lat: MAP_TOP, lon: -Math.PI });
-  assert.deepEqual(mapAt(950, 400, 900, 330), { lat: -MAP_TOP, lon: Math.PI });
+  const corner = mapAt(-50, -50, 900, 330), other = mapAt(950, 400, 900, 330);
+  close(corner.lat, Math.PI / 2, 1e-6); close(corner.lon, -Math.PI);
+  close(other.lat, -Math.PI / 2, 1e-6); close(other.lon, Math.PI);
 });
 
 test('a place sits on the map where its cell is', () => {
@@ -200,7 +231,7 @@ test('a weak wobble is not a high or low, and two marks never sit on top of each
 const meets = (a, b) => !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
 
 test('a label near the map edge stays whole inside it', () => {
-  const marks = [{ lat: MAP_TOP * .99, lon: 3.13 }, { lat: -MAP_TOP * .99, lon: -3.13 }];
+  const marks = [{ lat: 1.15, lon: 3.13 }, { lat: -1.15, lon: -3.13 }];
   const placed = placeMarks(marks, 400, 150, () => 50, 20, null, 9);
   assert.equal(placed.length, 2);
   for (const box of placed) assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.w <= 400 && box.y + box.h <= 150);
@@ -226,4 +257,53 @@ test('the caption names only what a network made', () => {
   assert.equal(sourceWords(['cloud', 'pressure'], true, true), 'cloud, pressure, ridge temperature');
   assert.equal(sourceWords(['cloud', 'temp', 'pressure'], true, true), 'cloud, temperature, pressure');
   assert.equal(sourceWords(['cloud', 'temp', 'pressure'], false, false), 'cloud');
+});
+
+test('the day\'s facts weigh cells by area and find the extremes', () => {
+  const rows = 24, cols = 48, grid = new Array(rows * cols).fill(0), temp = new Array(rows * cols).fill(10), pressure = new Array(rows * cols).fill(1010);
+  // Cloud only at the top row, which covers little of the sphere.
+  for (let col = 0; col < cols; col++) grid[(rows - 1) * cols + col] = 100;
+  temp[12 * cols + 7] = 35; temp[3] = -40; pressure[20 * cols + 40] = 960;
+  const facts = dayFacts(grid, temp, pressure, rows, cols);
+  assert.ok(facts.cloud < 1, `${facts.cloud}`);
+  assert.equal(facts.hot.value, 35);
+  close(facts.hot.lat, (12.5 / rows - .5) * Math.PI);
+  close(facts.hot.lon, (7.5 / cols - .5) * 2 * Math.PI);
+  assert.equal(facts.cold.value, -40);
+  assert.equal(facts.low.value, 960);
+  const bare = dayFacts(grid, null, null, rows, cols);
+  assert.equal(bare.hot, null); assert.equal(bare.low, null);
+  assert.equal(dayFacts(null, null, null, rows, cols).cloud, null);
+});
+
+test('a place reads as degrees with its hemisphere', () => {
+  assert.equal(placeWords(11 * DEG, 8 * DEG), '11N 8E');
+  assert.equal(placeWords(-45.4 * DEG, -73.6 * DEG), '45S 74W');
+});
+
+test('the model line says who made the map on screen', () => {
+  const all = modelWords('network', ['cloud', 'temp', 'pressure'], true, true, true);
+  assert.equal(all.net, 'our neural networks');
+  assert.ok(all.lines.some(line => line.includes('cloud 19\u00a0points, temperature 0.9°C, pressure 2.6\u00a0hPa')));
+  assert.ok(!all.lines.join().includes('ridge'));
+  const ridge = modelWords('network', ['cloud'], true, false, true);
+  assert.equal(ridge.net, 'our neural network');
+  assert.ok(ridge.lines.some(line => line.startsWith('temperature: ridge')));
+  assert.ok(ridge.lines.some(line => line.endsWith('cloud 19\u00a0points')));
+  assert.ok(!ridge.lines.join().includes('hPa'));
+  const old = modelWords('network', ['cloud'], false, false, true);
+  assert.ok(!old.lines.join().includes('ridge'));
+  const meteo = modelWords('meteo', [], false, false, true);
+  assert.equal(meteo.net, '');
+  assert.ok(meteo.from.includes('not ours'));
+  assert.equal(modelWords('none', [], false, false, true).from, 'no forecast reached this page');
+  assert.equal(modelWords('none', [], false, false, false).from, 'loading forecast');
+});
+
+test('the fleet\'s facts come from its orbits', () => {
+  const orb = { n: 3, a: new Float32Array([1.08, 1.1, 6.6]), mDot: new Float32Array([.00111, .00105, .0000729]) };
+  const facts = fleetFacts(orb, 6378.135);
+  close(facts.lowShare, 2 / 3);
+  close(facts.lapMin, 2 * Math.PI / .00105 / 60, .01);
+  assert.equal(fleetFacts({ n: 0, a: [], mDot: [] }, 6378.135).lapMin, 0);
 });

@@ -8,15 +8,15 @@
 <meta name="description" content="The Earth at true scale with every tracked object at its true height and a cloud, temperature and pressure forecast printed as a map.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--net:#36d07f;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace;--col:min(100% - 32px,2.73 * 30vh)}
-/* The map's height is 30% of the window at most, so the globe always keeps the larger share. */
-@supports (height:1svh){:root{--col:min(100% - 32px,2.73 * 30svh)}}
+:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--net:#36d07f;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace;--ratio:2.0546;--col:min(100% - 32px,1120px,var(--ratio) * 78vh)}
+/* The whole map fits in one window at any width, so scrolling never cuts it. */
+@supports (height:1svh){:root{--col:min(100% - 32px,1120px,var(--ratio) * 78svh)}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{background:var(--bg);color:var(--fg);font:12px/1.714 var(--mono);-webkit-text-size-adjust:100%}
 @media (min-width:700px){html{font-size:14px}}
-body{margin:0;min-height:100vh;min-height:100svh;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(260px,1fr) auto}
-h1{margin:0;font:inherit}
+body{margin:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
+h1,h2{margin:0;font:inherit}
 p{margin:0}
 .m{color:var(--muted)}
 .net{color:var(--net)}
@@ -34,7 +34,9 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 #top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding-block:12px 4px}
 #sats{margin-left:auto}
 
-#stage{position:relative;overflow:hidden;touch-action:none;cursor:grab;outline:0}
+/* Tall enough to hold the planet, short enough on a phone to leave the map on the first screen. */
+#stage{position:relative;overflow:hidden;touch-action:none;cursor:grab;outline:0;height:clamp(320px,66vh,100vw + 120px)}
+@supports (height:1svh){#stage{height:clamp(320px,66svh,100vw + 120px)}}
 #stage.moving{cursor:grabbing}
 #stage:focus-visible{outline:1px solid var(--muted);outline-offset:-1px}
 #stage canvas{position:absolute;inset:0;width:100%;height:100%}
@@ -48,19 +50,33 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 #stage{container-type:inline-size}
 @container (max-width:340px){#scale{top:8px;bottom:auto;right:16px}}
 
-#forecast{padding-block:4px 12px}
-#map{position:relative;aspect-ratio:2.73;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none}
+#forecast{padding-block:8px 48px}
+#map{position:relative;aspect-ratio:var(--ratio);cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none}
 #map canvas{position:absolute;inset:0;width:100%;height:100%}
 #map-lines{pointer-events:none}
-#map-src{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 16px}
-#legend{white-space:nowrap}
+#map-read{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 16px;margin-top:8px}
+#legend{display:flex;flex-wrap:wrap;gap:4px 24px;margin:8px 0 0;padding:0;list-style:none}
+/* Items keep one line where they fit; the long pressure item wraps on a narrow phone instead of widening the page. */
+#legend li{min-width:0}
+.sw{display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px}
+.sw+.sw{margin-left:-8px}
+.sw.line{position:relative}
+.sw.line::after{content:"";position:absolute;inset:5px 0 auto;height:2px;background:#000}
+.ramp{color:#f2f2f2;padding-inline:4px}
+#facts{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;margin-top:32px;font-size:14px}
+#facts h2{margin-bottom:8px}
+.lines{color:var(--muted)}
+.lines>p:first-child{color:var(--fg)}
+.lines button{color:var(--muted)}
+#facts .more{margin-top:8px}
+@media (min-width:900px) and (min-height:501px){#facts{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 /* A phone's thumb needs more than a line of text. */
 @media (pointer:coarse){a,button{padding:6px 2px}}
 /* A phone on its side has no height to stack in, so the map moves beside the globe. */
 @media (max-height:500px) and (orientation:landscape){
   body{grid-template-columns:minmax(0,1fr) minmax(0,46%);grid-template-rows:auto 1fr}
-  #stage{grid-column:1;grid-row:1/3;position:sticky;top:0;height:100vh;height:100svh}
+  #stage{grid-column:1;grid-row:1/3;position:sticky;top:0;height:100vh;height:100svh;align-self:start}
   #note{left:16px}
   #scale{right:16px}
   #top,#forecast{grid-column:2;width:auto;margin-inline:16px}
@@ -86,12 +102,38 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
     <canvas id="map-glyphs" aria-hidden="true"></canvas>
     <canvas id="map-lines" aria-hidden="true"></canvas>
   </div>
-  <p id="map-read"><span id="map-mark" class="here">+ </span><span id="map-text"></span></p>
-  <p id="map-src" class="m"><span><span id="map-net" class="net" hidden>network </span><span id="map-from">loading forecast</span></span><span id="legend">0 .:-=+*#%@ 100</span></p>
+  <p id="map-read"><span><span id="map-mark" class="here">+ </span><span id="map-text"></span></span><span class="m">point or tap to read a place</span></p>
+  <ul id="legend" class="m" aria-label="Map legend"></ul>
+  <div id="facts">
+    <section aria-labelledby="today-h">
+      <h2 id="today-h">today</h2>
+      <div class="lines" id="today-lines"></div>
+    </section>
+    <section id="model" aria-labelledby="model-h">
+      <h2 id="model-h">model</h2>
+      <div class="lines">
+        <p><span id="map-net" class="net" hidden></span><span id="map-from">loading forecast</span></p>
+        <div id="model-more"></div>
+      </div>
+      <p class="more"><a href="flow.html">how it works</a></p>
+    </section>
+    <section aria-labelledby="fleet-h">
+      <h2 id="fleet-h">satellites</h2>
+      <div class="lines">
+        <p id="fleet-count">loading satellites</p>
+        <div id="fleet-more" hidden>
+          <p id="fleet-where"></p>
+          <p>each dot: one object at this second, from its published orbit, no neural network</p>
+        </div>
+      </div>
+      <p class="more"><a href="flow.html#satellites">satellite model</a></p>
+    </section>
+  </div>
 </section>
 <script src="orbits.js"></script>
 <script src="planet.js"></script>
 <script src="mapmath.js"></script>
+<script src="earthinfo.js"></script>
 <script src="earth.js"></script>
 <script src="earthmap.js"></script>
 </body>

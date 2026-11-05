@@ -9,7 +9,7 @@ async (page) => {
     await page.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => {});
     await page.route('https://raw.githubusercontent.com/**', r => {
       const tail = r.request().url().split('?')[0].split('/data/').pop();
-      const file = tail in files ? files[tail] : tail === 'forecast.json' ? 'variants/forecast-pressure.json' : tail;
+      const file = tail in files ? files[tail] : tail === 'forecast.json' ? 'variants/forecast-dry3.json' : tail;
       if (file === null) return r.fulfill({ status: 404, body: '', headers: CORS });
       return r.fulfill({ path: root + file, headers: CORS });
     });
@@ -25,7 +25,7 @@ async (page) => {
     const box = id => { const el = document.getElementById(id); if (!el || el.hidden || !el.getClientRects().length) return null; const r = el.getBoundingClientRect(); return { l: r.left, t: r.top + scrollY, r: r.right, b: r.bottom + scrollY }; };
     const over = (a, b) => !!a && !!b && !(a.r <= b.l || b.r <= a.l || a.b <= b.t || b.b <= a.t);
     const stage = box('stage'), map = box('map'), top = box('top'), note = box('note'), scale = box('scale'), forecast = box('forecast');
-    const ink = [...document.querySelectorAll('#top *, #map-read, #map-src, #note .t, #scale-text')].filter(e => e.getClientRects().length && e.textContent).map(e => e.getBoundingClientRect());
+    const ink = [...document.querySelectorAll('#top *, #map-read, #legend li, #facts p, #facts h2, #note .t, #scale-text')].filter(e => e.getClientRects().length && e.textContent).map(e => e.getBoundingClientRect());
     return {
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       inkPast: Math.max(0, ...ink.map(r => Math.round(r.right - innerWidth + 8)), ...ink.map(r => Math.round(8 - r.left))),
@@ -43,14 +43,20 @@ async (page) => {
     await open('');
     await page.waitForFunction(() => orb && mCols, null, { timeout: 20000 });
     await page.waitForTimeout(200);
-    if ([1440, 768, 390].includes(w)) await page.screenshot({ path: `${shots}map-${w}.png` });
+    if ([1440, 768, 390].includes(w)) {
+      await page.screenshot({ path: `${shots}map-${w}.png` });
+      await page.evaluate(() => document.getElementById('forecast').scrollIntoView());
+      await page.screenshot({ path: `${shots}facts-${w}.png` });
+      await page.evaluate(() => scrollTo(0, 0));
+    }
     const p = await page.evaluate(probe), bad = [];
     const short = h <= 500 && w > h;
     if (p.overflowX > 0) bad.push('overflowX ' + p.overflowX);
     if (p.inkPast) bad.push('text within 8px of edge by ' + p.inkPast);
     if (p.collide.length) bad.push('overlap ' + p.collide.join(', '));
     if (short ? !p.beside : !p.below) bad.push('map not ' + (short ? 'beside' : 'below'));
-    if (p.stage < p.map) bad.push(`globe ${p.stage} shorter than map ${p.map}`);
+    // The page promises the whole map fits one window, so scrolling never cuts it.
+    if (p.map > h) bad.push(`map ${p.map} taller than window ${h}`);
     if (p.cols < 40 || p.rows < 10) bad.push(`map only ${p.cols}x${p.rows} cells`);
     rows.push(`${w}x${h} stage=${p.stageW}x${p.stage} map=${p.mapW}x${p.map} cells=${p.cols}x${p.rows} scroll=${p.scroll} ${bad.length ? 'BAD: ' + bad.join('; ') : 'ok'}`);
   }
@@ -58,7 +64,8 @@ async (page) => {
   // Each way the data can be missing, wrong or stale, read as the visitor sees it.
   const read = () => ({
     from: $('map-from').textContent, net: !$('map-net').hidden, text: $('map-text').textContent, count: $('count').textContent,
-    cloudNote: $('cloud-note').hidden ? null : $('cloud-note').textContent, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    cloudNote: $('cloud-note').hidden ? null : $('cloud-note').textContent, facts: $('facts').innerText.replace(/\n+/g, ' | '),
+    bad: /undefined|NaN|\[object|null/.test(document.body.innerText), overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   });
   const states = {};
   await page.setViewportSize({ width: 1280, height: 800 });

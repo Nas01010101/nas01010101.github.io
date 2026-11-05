@@ -30,7 +30,7 @@ async (page) => {
     const c = document.documentElement, text = document.body.innerText;
     const clipped = [...document.querySelectorAll('pre')].filter(e => e.scrollWidth > e.clientWidth + 1).length;
     const net = document.querySelector('#pipeline pre');
-    return { net: !!net && net.textContent.includes('prediction:') && net.textContent.includes('256 at 6x3'), h: c.scrollHeight, overflow: c.scrollWidth - c.clientWidth, bad: /undefined|NaN|\[object|global|repeat|persistence/.test(text), chart: !!document.querySelector('#loss pre'), noneYet: document.getElementById('loss').innerText.includes('no scored forecasts yet'), satNet: !!document.querySelector('#satnet pre') && document.querySelector('#satnet pre').textContent.includes('block 6'), satChart: !!document.querySelector('#satloss pre'), satNone: document.getElementById('satloss').innerText.includes('no scored forecasts yet'), clipped, state: document.getElementById('state').parentElement.hidden ? '' : document.getElementById('state').textContent };
+    return { net: !!net && net.textContent.includes('prediction:') && net.textContent.includes('256 at 6x3'), h: c.scrollHeight, overflow: c.scrollWidth - c.clientWidth, bad: /undefined|NaN|\[object|global|repeat|persistence/.test(text), chart: !!document.querySelector('#loss pre'), noneYet: document.getElementById('loss').innerText.includes('no scored forecasts yet'), satNet: !!document.querySelector('#satnet pre') && document.querySelector('#satnet pre').textContent.includes('block 6'), satChart: !!document.querySelector('#satloss pre'), satNone: /no scored forecasts yet|no 3-day score yet/.test(document.getElementById('satloss').innerText), clipped, state: document.getElementById('state').parentElement.hidden ? '' : document.getElementById('state').textContent };
   };
   const rows = {};
   for (const [name, body] of Object.entries(states)) {
@@ -111,6 +111,9 @@ async (page) => {
   await p.route(url, r => r.fulfill({ json: states.satRows }));
   await p.goto('http://127.0.0.1:8765/flow.html?m=' + Date.now());
   await p.waitForSelector('#satloss pre');
+  // The picture only animates while on screen, so bring it into view first.
+  await p.evaluate(() => document.getElementById('satnet').scrollIntoView());
+  await p.waitForTimeout(300);
   const satNet = () => p.evaluate(() => document.querySelector('#satnet pre').textContent);
   const s0 = await satNet();
   await p.waitForTimeout(700);

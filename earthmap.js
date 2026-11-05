@@ -2,6 +2,8 @@
 'use strict';
 const mapEl = $('map'), mapCv = $('map-glyphs'), mapCtx = mapCv.getContext('2d'), linesCv = $('map-lines'), linesCtx = linesCv.getContext('2d');
 const INK_DIM = 2, INK_LIT = 4, DRAG_PX = 4, MARK_PX = 90;
+// A band value for cells outside the Earth's outline: nothing is drawn there, so the page's black shows through.
+const MAP_OFF = 255;
 // A phone's map is too short for every line, so it draws half of them.
 const isobarStep = () => (mapW < 500 ? 16 : 8);
 
@@ -21,7 +23,7 @@ const hereCell = () => mapCell(HERE_LAT, HERE_LON, mCols, mRows);
 
 function fillGlyphs() {
   if (!mCols) return;
-  for (let i = 0; i < mGlyph.length; i++) mGlyph[i] = field.grid ? percentGlyph(fieldAt(field.grid, mLat[i], mLon[i], field.rows, field.cols)) : -1;
+  for (let i = 0; i < mGlyph.length; i++) mGlyph[i] = field.grid && mBand[i] !== MAP_OFF ? percentGlyph(fieldAt(field.grid, mLat[i], mLon[i], field.rows, field.cols)) : -1;
   mapKey = '';
 }
 
@@ -39,7 +41,9 @@ function fitMap() {
   mLat = new Float32Array(n); mLon = new Float32Array(n); mBand = new Uint8Array(n); mGlyph = new Int8Array(n); mLit = new Uint8Array(n); mShown = new Int32Array(n).fill(-1);
   for (let row = 0, i = 0; row < mRows; row++) {
     for (let col = 0; col < mCols; col++, i++) {
-      const { lat, lon } = mapPlace(col, row, mCols, mRows);
+      const place = mapPlace(col, row, mCols, mRows);
+      if (!place) { mBand[i] = MAP_OFF; continue; }
+      const { lat, lon } = place;
       mLat[i] = lat; mLon[i] = lon; mBand[i] = isLand(lat, lon) ? 1 + terrainBand(lat, lon) : 0;
     }
   }
@@ -55,14 +59,15 @@ function drawMap() {
   mapKey = key;
   const R = radius();
   let any = false;
-  for (let i = 0; i < mLit.length; i++) { mLit[i] = seenFrom(mLat[i], mLon[i], view, R, W, H) ? 1 : 0; any = any || mLit[i] === 1; }
+  for (let i = 0; i < mLit.length; i++) { mLit[i] = mBand[i] !== MAP_OFF && seenFrom(mLat[i], mLon[i], view, R, W, H) ? 1 : 0; any = any || mLit[i] === 1; }
   // Zoomed in far enough, the view is smaller than a cell, and the window must not vanish.
   if (!any) {
-    const at = mapCell(Math.max(-MAP_TOP * .999, Math.min(MAP_TOP * .999, view.pitch)), wrapYaw(view.yaw), mCols, mRows);
-    if (at) mLit[at.row * mCols + at.col] = 1;
+    const at = mapCell(view.pitch, wrapYaw(view.yaw), mCols, mRows), cell = at.row * mCols + at.col;
+    if (mBand[cell] !== MAP_OFF) mLit[cell] = 1;
   }
-  const here = hereCell(), hereAt = here ? here.row * mCols + here.col : -1, tap = tapped && mapCell(tapped.lat, tapped.lon, mCols, mRows), tapAt = tap ? tap.row * mCols + tap.col : -1;
+  const here = hereCell(), hereAt = here.row * mCols + here.col, tap = tapped && mapCell(tapped.lat, tapped.lon, mCols, mRows), tapAt = tap ? tap.row * mCols + tap.col : -1;
   for (let i = 0; i < mGlyph.length; i++) {
+    if (mBand[i] === MAP_OFF) continue;
     let glyph = mGlyph[i], ink = mLit[i] ? INK_LIT : INK_DIM, mark = 0;
     // A black tile and blank neighbours keep a one-cell mark readable inside a field of heavy glyphs.
     if (i === hereAt) { glyph = PLUS; ink = HERE; mark = 1; } else if (i === tapAt) { glyph = PLUS; ink = INK_LIT; mark = 1; } else if (Math.abs(i - hereAt) === 1 || Math.abs(i - tapAt) === 1) glyph = -1;
@@ -133,22 +138,75 @@ function mapReadout() {
 }
 
 function mapSource() {
-  $('map-net').hidden = field.kind !== 'network';
-  let from = settled ? 'no forecast reached this page' : 'loading forecast', label = from, day = null;
-  if (field.kind === 'network') {
-    from = `${sourceWords(field.nets, !!field.temp, !!field.pressure)}, `;
-    // A narrow column would otherwise break the date at its hyphens.
-    day = document.createElement('span');
-    day.style.whiteSpace = 'nowrap';
-    day.textContent = field.date;
-    label = `Forecast map for ${field.date} from the network.`;
-  } else if (field.kind === 'meteo') {
-    from = `open-meteo forecast, ${new Date(field.at).toISOString().slice(11, 16)} UTC`;
-    label = `Cloud forecast map from Open-Meteo for ${new Date(field.at).toISOString().slice(0, 16).replace('T', ' ')} UTC.`;
-  }
-  $('map-from').replaceChildren(from, ...(day ? [day] : []));
-  $('legend').textContent = `0 .:-=+*#%@ 100${field.pressure ? `  lines ${isobarStep()} hPa` : ''}`;
+  const words = modelWords(field.kind, field.nets, !!field.temp, !!field.pressure, settled), net = $('map-net');
+  net.hidden = !words.net;
+  net.textContent = words.net;
+  $('map-from').textContent = words.from;
+  $('model-more').replaceChildren(...words.lines.map(text => infoLine(text)));
+  $('legend-pressure').hidden = !field.pressure;
+  $('legend-step').textContent = `pressure lines every ${isobarStep()} hPa`;
+  renderToday();
+  const label = field.kind === 'network' ? `Forecast map for ${field.date}, by our networks: ${sourceWords(field.nets, !!field.temp, !!field.pressure)}.` : field.kind === 'meteo' ? `Cloud forecast map from Open-Meteo for ${new Date(field.at).toISOString().slice(0, 16).replace('T', ' ')} UTC.` : words.from;
   mapEl.setAttribute('aria-label', `${label} ${$('map-text').textContent}`);
+}
+
+function infoLine(...parts) {
+  const line = document.createElement('p');
+  line.append(...parts);
+  return line;
+}
+
+// Points the globe and the map at a place named in the text.
+function flyTo(place) {
+  aim = { yaw: place.lon, pitch: place.lat };
+  tapped = place;
+  mapReadout();
+  dirty = true;
+  mapEl.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+}
+
+function placeButton(place) {
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.textContent = placeWords(place.lat, place.lon);
+  go.setAttribute('aria-label', `Show ${placeWords(place.lat, place.lon)} on the map`);
+  go.addEventListener('click', () => flyTo(place));
+  return go;
+}
+
+function renderToday() {
+  const box = $('today-lines');
+  if (!field.grid) {
+    box.replaceChildren(infoLine(settled ? 'no forecast reached this page' : 'loading forecast'));
+    return;
+  }
+  const facts = dayFacts(field.grid, field.temp, field.pressure, field.rows, field.cols);
+  const when = field.kind === 'network' ? field.date : new Date(field.at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+  const lines = [infoLine(when), infoLine(`world cloud ${Math.round(facts.cloud)}%`)];
+  const fact = (name, value, place) => infoLine(`${name} ${value} `, placeButton(place));
+  if (facts.hot) lines.push(fact('warmest', `${Math.round(facts.hot.value)}°C`, facts.hot), fact('coldest', `${Math.round(facts.cold.value)}°C`, facts.cold));
+  if (facts.low) lines.push(fact('lowest pressure', `${Math.round(facts.low.value)}\u00a0hPa`, facts.low));
+  if (facts.hot) lines.push(infoLine('daily means, cells about 800 km wide'));
+  box.replaceChildren(...lines);
+}
+
+function buildLegend() {
+  const list = $('legend'), swatch = (color, cls = 'sw') => { const box = document.createElement('i'); box.className = cls; box.style.background = color; return box; };
+  const item = (...parts) => { const li = document.createElement('li'); li.append(...parts); list.append(li); return li; };
+  ['sea', 'under 300 m', 'to 1,000 m', 'to 2,500 m', 'higher'].forEach((name, i) => item(swatch(BANDS[i]), name));
+  const ramp = document.createElement('span');
+  ramp.className = 'ramp';
+  ramp.style.background = BANDS[0];
+  ramp.textContent = RAMP;
+  item('cloud 0 ', ramp, ' 100%');
+  const step = document.createElement('span');
+  step.id = 'legend-step';
+  item(swatch(BANDS[1], 'sw line'), step, ', H high, L low').id = 'legend-pressure';
+  const here = document.createElement('span');
+  here.className = 'here';
+  here.textContent = '+ ';
+  item(here, 'Montréal');
+  item(swatch(BANDS_DIM[1]), swatch(BANDS[1]), 'bright: what the globe shows');
 }
 
 function refreshField() {
@@ -202,6 +260,11 @@ function placeOnMap(e) {
   return mapAt(e.clientX - box.left, e.clientY - box.top, box.width, box.height);
 }
 
+function onOutline(e) {
+  const box = mapEl.getBoundingClientRect();
+  return mapOn(e.clientX - box.left, e.clientY - box.top, box.width, box.height);
+}
+
 function showAt(place) { hovered = place; mapReadout(); }
 
 mapEl.addEventListener('pointerdown', e => {
@@ -212,7 +275,7 @@ mapEl.addEventListener('pointerdown', e => {
 });
 mapEl.addEventListener('pointermove', e => {
   const place = placeOnMap(e);
-  if (!mapPress) { if (e.pointerType === 'mouse') showAt(place); return; }
+  if (!mapPress) { if (e.pointerType === 'mouse') showAt(onOutline(e) ? place : null); return; }
   if (!mapPress.dragging && Math.hypot(e.clientX - mapPress.x, e.clientY - mapPress.y) >= DRAG_PX) mapPress.dragging = true;
   if (mapPress.dragging) {
     aim = null; view.yaw = place.lon; view.pitch = place.lat; dirty = true;
@@ -220,10 +283,10 @@ mapEl.addEventListener('pointermove', e => {
   }
 });
 mapEl.addEventListener('pointerup', e => {
-  if (mapPress && !mapPress.dragging) {
+  if (mapPress && !mapPress.dragging && onOutline(e)) {
     const place = placeOnMap(e), cell = mapCell(place.lat, place.lon, mCols, mRows), here = hereCell();
     aim = { yaw: place.lon, pitch: place.lat };
-    tapped = cell && here && cell.col === here.col && cell.row === here.row ? null : place;
+    tapped = cell.col === here.col && cell.row === here.row ? null : place;
     mapReadout();
   }
   mapPress = null;
@@ -241,9 +304,13 @@ const dots = download(`${FORECAST}sats.bin`).catch(() => download('sats.bin')).t
   pos = new Float32Array(orb.n * 3);
   orbitsAt(orb, clock(), pos);
   $('count').textContent = `${orb.n.toLocaleString('en-US')} objects, CelesTrak`;
+  const fleet = fleetFacts(orb, RE);
+  $('fleet-count').textContent = `${fleet.n.toLocaleString('en-US')} active satellites, from CelesTrak`;
+  $('fleet-where').textContent = `${Math.round(fleet.lowShare * 100)}% in low orbit, one lap about ${Math.round(fleet.lapMin)}\u00a0minutes`;
+  $('fleet-more').hidden = false;
   dirty = true;
 }).catch(() => {
-  $('count').textContent = 'satellites did not load';
+  $('count').textContent = $('fleet-count').textContent = 'satellites did not load';
   // Nothing to take away, unless the visitor already did.
   if (showDots) $('sats').hidden = true;
 });
@@ -255,4 +322,4 @@ new ResizeObserver(() => { fit(); fitMap(); mapTouch(); }).observe(document.docu
 new ResizeObserver(fit).observe(stage);
 new ResizeObserver(fitMap).observe(mapEl);
 addEventListener('resize', fit);
-fit(); fitMap(); mapReadout(); mapTouch(); requestAnimationFrame(loop);
+buildLegend(); fit(); fitMap(); mapReadout(); mapSource(); mapTouch(); requestAnimationFrame(loop);
