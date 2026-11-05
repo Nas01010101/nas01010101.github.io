@@ -92,8 +92,12 @@ function about(w) {
   const box = $('about');
   box.replaceChildren();
   if (!w) return;
-  box.append(line('A U-Net reads the past 30 days and predicts the day\'s mean cloud cover. Trained on ERA5, 1979 to 2018, then frozen.', 'm'));
-  box.append(line(`Temperature: ridge regression, refit daily on the past ${w.train_days} days.`, 'm'));
+  const nets = w.today.networks || (w.today.net ? ['cloud'] : []);
+  const words = { cloud: 'cloud cover', temp: 'temperature', pressure: 'pressure' };
+  const made = nets.map(name => words[name]).filter(Boolean);
+  const list = made.length > 1 ? `${made.slice(0, -1).join(', ')} and ${made[made.length - 1]}` : 'cloud cover';
+  box.append(line(`U-Nets read the past 30 days and predict the day's mean ${list}. Trained on ERA5, then frozen.`, 'm'));
+  if (!nets.includes('temp')) box.append(line(`Temperature: ridge regression, refit daily on the past ${w.train_days} days.`, 'm'));
   if (!w.today.net) box.append(line('Today\'s map came from ridge regression, because the job did not hold the 30 days the network reads.', 'm'));
 }
 // One column per day, on an axis running from the lowest loss to the highest, because from zero every day draws the same.
