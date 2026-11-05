@@ -3,7 +3,7 @@
 const MAP_RAD = Math.PI / 180;
 // Polar caps look like cloud in glyphs, and cutting them leaves a wider, shorter map.
 const MAP_TOP = 66 * MAP_RAD;
-// A geostationary ring, 6.6 Earth radii out, has to fit on screen.
+// A geostationary shell, 6.6 Earth radii out, has to fit on screen.
 const ZOOM_MIN = .1;
 const GRID_ROWS = 24, GRID_COLS = 48;
 
@@ -64,27 +64,133 @@ function chooseField(today, isoDate, frameOk) {
   return frameOk ? 'meteo' : 'none';
 }
 
-// Runs of a ground track, broken at the date line and where it leaves the map; a run needs two points to draw.
-function trackSegments(points) {
-  const runs = [];
-  let run = [];
-  const close = () => { if (run.length > 1) runs.push(run); run = []; };
-  for (const point of points) {
-    if (Math.abs(point.lat) >= MAP_TOP) { close(); continue; }
-    if (run.length && Math.abs(point.lon - run[run.length - 1].lon) > Math.PI) close();
-    run.push(point);
-  }
-  close();
-  return runs;
-}
-
 // An angle in (-pi, pi], the short way round.
 const wrapYaw = a => a - 2 * Math.PI * Math.ceil((a - Math.PI) / (2 * Math.PI));
 
 // Index into planet.js RAMP for a cloud percent; under 5% draws nothing.
 const percentGlyph = p => (p < 5 ? -1 : Math.min(8, Math.floor(p / 100 * 9)));
 
-// Far enough back to hold an orbit reaching rMax Earth radii, never closer than the current zoom.
-const zoomForOrbit = (rMax, zoom) => Math.max(ZOOM_MIN, Math.min(zoom, 1, 1 / rMax));
+// Sea, then land under 300 m, to 1000 m, to 2500 m and above. Mid tones, so white cloud glyphs and black isobars both read on every one.
+const BANDS = ['#2a6f97', '#3f8f4f', '#a08e3e', '#a5694a', '#a77ba8'];
+// The same colours at about half strength outside the part of the Earth the camera sees: the lit window is what ties the map to the globe.
+const BANDS_DIM = ['#15384b', '#1f4727', '#50471f', '#533425', '#533d54'];
 
-if (typeof module !== 'undefined') module.exports = { MAP_TOP, ZOOM_MIN, mapPlace, mapCell, mapPoint, mapAt, gridIndex, fieldAt, seenFrom, chooseField, trackSegments, wrapYaw, percentGlyph, zoomForOrbit };
+// ERA5 surface height, 2 bits per 2.5 degree cell, south edge first (research/weather/bake_terrain.py in ascii-earth-forecast).
+const TERRAIN = Uint8Array.from(atob('////////////////////////////////////////////////u6qqqqqqqqqqqqqqqqqqqqr/////////////////////////VQEAVFWlqqqqqlZVpaqqqqqq+v////////////////+/qqpVAAAAVFWpqqqqagUAQEVVqqqq+v///////////////7+qqgEAAABAVamqqqqqWgEAAAVQpaqq//////////////////+qqgUAAAAAUKqqalWpWlUFAAAAVar6////////q/7///////+/qgIAAAAAAAAEAABVVVVqAAAAAJCq/v////+/qur///////+rqloAAAAAAAAAAAAAAABpAAAAAABVqapVqvr/Gqn+//////+qqlUAAAAAAAAAAAAAAAAUAAAAAAAAAAAAAKmqWkCqqqqqqqpaFQAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAVAABAVVUFVFUBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEABAAAAAAAAAAAAAEAFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAGAAAAAAAAAAAAAAAAAAAAAAAAAABQAAAAAAAAAAAAAAAAAIAGAAAAAAAAAAAVAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAIAWAAAAAAAAAEBqAAAAAAAAAABAAQBAAQAAAAAAAAAAAAAAAEALUAAAAAAAAECpAQAAAAAAAABAVQEAAQAAAAAAAAAAAAAAAEAfUAEAAAAAAJCpAQAAAAAAAABQVQVQAAAAAAAAAAAAAAAAAEAfUAUAAAAAAKCqARAAAAAAAABQVQUQAAAAAAAAAAAAAAAAAAAvUBUAAAAAAKRmARAAAAAAAAAAUBUEAAAAAAAAAAAAAAAAAEBvUFUAAAAAAKSWBlAAAAAAAAAAQAEEAAAAAAAAAAAAAAAAAOBbUFUAAAAAAKRqFUAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAPgCVVUAAAAAAKSqVQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGkAFVUAAAAAAKSqVgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABoAFFQFAAAAAFSVGgAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAYAAEABAAAAAFRVKgAAAAAAAAAAAAAVAAAAAAAAAAAAAAAAAAIAAAAAAAAAAFSVagAAAAAAAAAAAFABAAAAAAAAAAAAAAAAAAYAAAAAAAAAAFWVagAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAABkABAAAAAAAAFVVagAAAAAAAAAUAAAAAAAAAAAAAAAAAAAAAChUAAAAAAAAAFVVVQUAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAGRUAAAAAAAAAFVVpRUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAAAAAEAFQFVVpVoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAVUFVVpVUAABAAAAAAAAAAAAAAAAAAAAAAAABABQAAAAAAAABVUFVVlRUAAFAAAAAAAAAAAAAAAAAAAAAAAABVAQAAAAAAAAAAVUVVVWgBAFAAQBAAAAAAAAAAAAAAAAAAAJAGAAAAAAAAAEBFVVVVFVkBAFQBUAUAAAAAAAAAAAAAAAAAAKACAAAAAAAAAEBFVZVVFVUAAFAFVAUAAAAAAAAAAAAAAAAAAKQBAAAAAAAAAABFZVVVRFUAAFAFlFoAAAAAAAAAAAAAAAAAAKkAAAAAAAAAAEAVVFUQURVAFRRQlWpVAAAAAAAAAAAAAAAAQGoAAAAAAAAAAABVVRUAVAWpZkD+/1tBAAAAAAAAAAAAAAAAQGoBAAAAAAAAAABZBQUAUEGqpeH//1sBAAAAAAAAAAAAAAAAlWoBAAAAAAAAAABUBQAAUJGauvr//68BAAAAAAAAAAAAAAAAqmoBUAAAAAAAAAAQVQAAVaWmpf///6sFAEAAAAAAAAAAAABAqm4FQAEAAAAAAABUAABBqmpQkL+q/6oGAAAAAAAAAAAAAACQqmoVAAUAAAAAAABUAQAFVWoAULqqqqpqUAAAAAAAAAAAAACQqmpVABAAAAAAAAAUFVAFABUAQKWqqqpqUQAAAAAAAAAAAABAqVZVAUEAAAAAAAAAlBYUAAAAAFVVqqpaQRAAAAAAAAAAAABQqlVVEVQBAAAAAAAAUFUVAAAAUFWlqqpWVVAAAAAAAAAAAACkalVQAVAVAAAAAAAAAAAAAABAQBWlqlpWFVUAAAAAAAAAAACpWlUAAFBVAAAAAAAAAAAAAABAAABQpVVaVRUAQAAAAAAAAEBqVVUAAFAVAAAAAAAAAAAAAABAAABAVVWqVRUAQAEAAAAAAJVaVVUAAAAQAAAAAAAAQAAAAABAAAAAVFVVVVUBAAAAAABQlapaAVUAAAAAACkAAAAAUAUAAABAAAAAVFUVFZBWFUABAABQVakWUQUAAAABAGoAAAUAABUAAAAAAAAAVVUFQJVqVVUBAABUVVUFVAEAAAAUQKoWAAAAAFQAAAAAAAAAVVUVUJVVQFVRAEBVVQFAAAAAAEABQOqvBgAAAEAFAAAAAAAAVVUBUFEBABBUAAAAAAAAAAAAABQAkPq/FgAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAAAUAAApP7/WgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUABUqv+vagAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQQWlqqqqWgAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUFVVVamqFQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'), c => c.charCodeAt(0));
+
+function terrainBand(lat, lon) {
+  const i = Math.floor(turnShare(lon) * 144), j = Math.min(71, Math.floor((lat / Math.PI + .5) * 72)), k = j * 144 + i;
+  return TERRAIN[k >> 2] >> (2 * (k & 3)) & 3;
+}
+
+// Which edges a cell's line joins, by which of its corners are above the level: top, right, bottom, left, as t r b l.
+const CROSSINGS = ['', 'lt', 'tr', 'lr', 'rb', '', 'tb', 'lb', 'lb', 'tb', '', 'rb', 'lr', 'tr', 'lt', ''];
+
+// Lines of equal value over the map, every `step`, as flat u0 v0 u1 v1 runs in shares of its width and height.
+// The bilinear field has kinks along its grid lines, and the smoothing keeps them out of the lines.
+function contours(grid, step, rows = GRID_ROWS, cols = GRID_COLS, density = 4) {
+  const nu = cols * density, nv = Math.round(rows * density * MAP_TOP / (Math.PI / 2));
+  let now = new Float64Array(nu * (nv + 1)), lo = Infinity, hi = -Infinity;
+  for (let j = 0; j <= nv; j++) {
+    for (let i = 0; i < nu; i++) now[j * nu + i] = fieldAt(grid, MAP_TOP * (1 - 2 * j / nv), (2 * i / nu - 1) * Math.PI, rows, cols);
+  }
+  for (let pass = 0; pass < 3; pass++) {
+    const next = new Float64Array(now.length);
+    for (let j = 0; j <= nv; j++) {
+      const up = Math.max(0, j - 1), down = Math.min(nv, j + 1);
+      for (let i = 0; i < nu; i++) {
+        const w = (i + nu - 1) % nu, e = (i + 1) % nu;
+        next[j * nu + i] = (4 * now[j * nu + i] + 2 * (now[j * nu + w] + now[j * nu + e] + now[up * nu + i] + now[down * nu + i]) + now[up * nu + w] + now[up * nu + e] + now[down * nu + w] + now[down * nu + e]) / 16;
+      }
+    }
+    now = next;
+  }
+  for (const value of now) { lo = Math.min(lo, value); hi = Math.max(hi, value); }
+  const out = [];
+  for (let level = Math.ceil(lo / step) * step; level <= hi; level += step) {
+    for (let j = 0; j < nv; j++) {
+      for (let i = 0; i < nu; i++) {
+        const a = now[j * nu + i], b = now[j * nu + (i + 1) % nu], c = now[(j + 1) * nu + (i + 1) % nu], d = now[(j + 1) * nu + i];
+        const code = (a > level) | (b > level) << 1 | (c > level) << 2 | (d > level) << 3;
+        if (code === 0 || code === 15) continue;
+        let pairs = CROSSINGS[code];
+        // Where opposite corners agree, the middle of the cell says which of them join.
+        if (!pairs) pairs = (code === 5) === ((a + b + c + d) / 4 > level) ? 'trlb' : 'ltrb';
+        for (let k = 0; k < pairs.length; k++) {
+          const edge = pairs[k];
+          if (edge === 't') out.push((i + (level - a) / (b - a)) / nu, j / nv);
+          else if (edge === 'b') out.push((i + (level - d) / (c - d)) / nu, (j + 1) / nv);
+          else if (edge === 'l') out.push(i / nu, (j + (level - a) / (d - a)) / nv);
+          else out.push((i + 1) / nu, (j + (level - b) / (c - b)) / nv);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// Highs and lows: cells beyond every neighbour within two cells and clear of the ring around them, the strongest first.
+function pressureMarks(grid, rows = GRID_ROWS, cols = GRID_COLS, clear = 3, apart = 6) {
+  const found = [];
+  for (let j = 0; j < rows; j++) {
+    const lat = ((j + .5) / rows - .5) * Math.PI;
+    if (Math.abs(lat) >= MAP_TOP) continue;
+    for (let i = 0; i < cols; i++) {
+      const value = grid[j * cols + i];
+      let top = true, bottom = true, ring = 0, count = 0;
+      for (let dj = -2; dj <= 2; dj++) {
+        if (j + dj < 0 || j + dj >= rows) continue;
+        for (let di = -2; di <= 2; di++) {
+          if (!di && !dj) continue;
+          const other = grid[(j + dj) * cols + (i + di + cols) % cols];
+          if (other >= value) top = false;
+          if (other <= value) bottom = false;
+          if (Math.max(Math.abs(di), Math.abs(dj)) === 2) { ring += other; count++; }
+        }
+      }
+      const beyond = Math.abs(value - ring / count);
+      if ((top || bottom) && beyond >= clear) found.push({ lat, lon: ((i + .5) / cols - .5) * 2 * Math.PI, i, j, kind: top ? 'H' : 'L', value, beyond });
+    }
+  }
+  found.sort((p, q) => q.beyond - p.beyond);
+  const kept = [];
+  for (const mark of found) {
+    const near = kept.some(k => { const d = Math.abs(k.i - mark.i); return Math.max(Math.min(d, cols - d), Math.abs(k.j - mark.j)) < apart; });
+    if (!near) kept.push(mark);
+  }
+  return kept;
+}
+
+// Label boxes for marks, strongest first, kept inside the w by h map and off `avoid` and each other. A label that fits nowhere within one tile of its point is dropped.
+function placeMarks(marks, w, h, tileW, tileH, avoid, limit) {
+  const boxes = avoid ? [avoid] : [], placed = [];
+  const clear = box => boxes.every(o => box.x + box.w <= o.x || o.x + o.w <= box.x || box.y + box.h <= o.y || o.y + o.h <= box.y);
+  for (const mark of marks) {
+    if (placed.length >= limit) break;
+    const { x, y } = mapPoint(mark.lat, mark.lon, w, h), tile = tileW(mark);
+    for (const [dx, dy] of [[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const box = {
+        x: Math.max(0, Math.min(w - tile, x - tile / 2 + dx * tile)),
+        y: Math.max(0, Math.min(h - tileH, y - tileH / 2 + dy * tileH)),
+        w: tile, h: tileH,
+      };
+      if (!clear(box)) continue;
+      boxes.push(box);
+      placed.push({ mark, ...box });
+      break;
+    }
+  }
+  return placed;
+}
+
+// The caption after the word "network": what the networks made, then the one field that may come from the ridge.
+function sourceWords(nets, hasTemp, hasPressure) {
+  const made = [];
+  if (nets.includes('cloud')) made.push('cloud');
+  if (hasTemp && nets.includes('temp')) made.push('temperature');
+  if (hasPressure && nets.includes('pressure')) made.push('pressure');
+  if (hasTemp && !nets.includes('temp')) made.push('ridge temperature');
+  return made.join(', ');
+}
+
+if (typeof module !== 'undefined') module.exports = { MAP_TOP, ZOOM_MIN, BANDS, BANDS_DIM, mapPlace, mapCell, mapPoint, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, terrainBand, contours, pressureMarks, placeMarks, sourceWords };

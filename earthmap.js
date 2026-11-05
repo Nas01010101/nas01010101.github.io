@@ -1,12 +1,14 @@
-// The day's cloud forecast printed as glyphs on a flat map: land prints bright and sea dim, and a tone behind the glyphs marks the part of the Earth the camera sees.
+// The day's forecast on a flat map: height bands in colour, cloud as white glyphs, isobars and highs and lows from the pressure grid. The part of the Earth the camera sees stays bright.
 'use strict';
 const mapEl = $('map'), mapCv = $('map-glyphs'), mapCtx = mapCv.getContext('2d'), linesCv = $('map-lines'), linesCtx = linesCv.getContext('2d');
-const WINDOW_TONE = '#1a1a1a', INK_SEA = 0, INK_LAND = 4, DRAG_PX = 4;
+const INK_DIM = 2, INK_LIT = 4, DRAG_PX = 4, MARK_PX = 90;
+// A phone's map is too short for every line, so it draws half of them.
+const isobarStep = () => (mapW < 500 ? 16 : 8);
 
 let mapW = 0, mapH = 0, mapDpr = 0, mCols = 0, mRows = 0, mCw = 0, mCh = 0, mAtlas = null, mapKey = '';
-let mLat, mLon, mLand, mGlyph, mLit, mShown;
-let field = { kind: 'none', key: 'none', date: null, grid: null, temp: null, rows: GRID_ROWS, cols: GRID_COLS };
-let settled = false, tapped = null, hovered = null, aim = null, mapPress = null, cloudsOwn = false, linesClear = true;
+let mLat, mLon, mBand, mGlyph, mLit, mShown;
+let field = { kind: 'none', key: 'none', date: null, grid: null, temp: null, pressure: null, nets: [], rows: GRID_ROWS, cols: GRID_COLS };
+let settled = false, tapped = null, hovered = null, aim = null, mapPress = null, cloudsOwn = false, linesKey = '';
 
 const isoDay = ms => new Date(ms).toISOString().slice(0, 10);
 const todayOf = data => (data && data.weather && data.weather.today) || null;
@@ -19,11 +21,7 @@ const hereCell = () => mapCell(HERE_LAT, HERE_LON, mCols, mRows);
 
 function fillGlyphs() {
   if (!mCols) return;
-  for (let i = 0; i < mGlyph.length; i++) {
-    const glyph = field.grid ? percentGlyph(fieldAt(field.grid, mLat[i], mLon[i], field.rows, field.cols)) : -1;
-    // A clear sky over land keeps its coast, so the map is still a map when nothing is forecast.
-    mGlyph[i] = glyph < 0 && mLand[i] ? 0 : glyph;
-  }
+  for (let i = 0; i < mGlyph.length; i++) mGlyph[i] = field.grid ? percentGlyph(fieldAt(field.grid, mLat[i], mLon[i], field.rows, field.cols)) : -1;
   mapKey = '';
 }
 
@@ -38,15 +36,15 @@ function fitMap() {
   mCols = Math.floor(mapCv.width / mCw); mRows = Math.floor(mapCv.height / mCh);
   mAtlas = makeAtlas(font, mCw, mCh);
   const n = mCols * mRows;
-  mLat = new Float32Array(n); mLon = new Float32Array(n); mLand = new Uint8Array(n); mGlyph = new Int8Array(n); mLit = new Uint8Array(n); mShown = new Int32Array(n).fill(-1);
+  mLat = new Float32Array(n); mLon = new Float32Array(n); mBand = new Uint8Array(n); mGlyph = new Int8Array(n); mLit = new Uint8Array(n); mShown = new Int32Array(n).fill(-1);
   for (let row = 0, i = 0; row < mRows; row++) {
     for (let col = 0; col < mCols; col++, i++) {
       const { lat, lon } = mapPlace(col, row, mCols, mRows);
-      mLat[i] = lat; mLon[i] = lon; mLand[i] = isLand(lat, lon);
+      mLat[i] = lat; mLon[i] = lon; mBand[i] = isLand(lat, lon) ? 1 + terrainBand(lat, lon) : 0;
     }
   }
   fillGlyphs();
-  linesClear = false;
+  mapSource();
   dirty = true;
 }
 
@@ -65,48 +63,49 @@ function drawMap() {
   }
   const here = hereCell(), hereAt = here ? here.row * mCols + here.col : -1, tap = tapped && mapCell(tapped.lat, tapped.lon, mCols, mRows), tapAt = tap ? tap.row * mCols + tap.col : -1;
   for (let i = 0; i < mGlyph.length; i++) {
-    let glyph = mGlyph[i], ink = mLand[i] ? INK_LAND : INK_SEA;
-    // Blank neighbours keep a one-cell mark readable inside a field of heavy glyphs.
-    if (i === hereAt) { glyph = PLUS; ink = HERE; } else if (i === tapAt) { glyph = PLUS; ink = INK_LAND; } else if (Math.abs(i - hereAt) === 1 || Math.abs(i - tapAt) === 1) glyph = -1;
-    const state = (glyph + 1) * 64 + ink * 2 + mLit[i];
+    let glyph = mGlyph[i], ink = mLit[i] ? INK_LIT : INK_DIM, mark = 0;
+    // A black tile and blank neighbours keep a one-cell mark readable inside a field of heavy glyphs.
+    if (i === hereAt) { glyph = PLUS; ink = HERE; mark = 1; } else if (i === tapAt) { glyph = PLUS; ink = INK_LIT; mark = 1; } else if (Math.abs(i - hereAt) === 1 || Math.abs(i - tapAt) === 1) glyph = -1;
+    const state = ((glyph + 1) * 64 + ink * 2 + mLit[i]) * 2 + mark;
     if (state === mShown[i]) continue;
     mShown[i] = state;
     const col = i % mCols, row = (i - col) / mCols, px = Math.round(col * mapCv.width / mCols), py = Math.round(row * mapCv.height / mRows);
-    mapCtx.clearRect(px, py, mCw + 1, mCh + 1);
-    if (mLit[i]) { mapCtx.fillStyle = WINDOW_TONE; mapCtx.fillRect(px, py, mCw + 1, mCh + 1); }
+    mapCtx.fillStyle = mark ? '#000' : (mLit[i] ? BANDS : BANDS_DIM)[mBand[i]];
+    mapCtx.fillRect(px, py, Math.round((col + 1) * mapCv.width / mCols) - px, Math.round((row + 1) * mapCv.height / mRows) - py);
     if (glyph >= 0) mapCtx.drawImage(mAtlas, glyph * mCw, ink * mCh, mCw, mCh, px, py, mCw, mCh);
   }
+  drawIsobars();
 }
 
-function drawMapLines(p) {
-  if (!picked) {
-    if (!linesClear) { linesCtx.clearRect(0, 0, linesCv.width, linesCv.height); linesClear = true; }
-    return;
-  }
-  const w = linesCv.width, h = linesCv.height, line = mapDpr;
+// Redrawn only when the field or the map's size changes: the lines stay still while the window moves under them.
+function drawIsobars() {
+  const key = `${field.key},${linesCv.width},${linesCv.height}`;
+  if (key === linesKey) return;
+  linesKey = key;
+  const w = linesCv.width, h = linesCv.height;
   linesCtx.clearRect(0, 0, w, h);
-  linesClear = false;
-  if (track) {
-    // A black edge keeps the line readable over heavy glyphs.
-    for (const [width, ink] of [[line * 3, '#000'], [line, SGP4_INK]]) {
-      linesCtx.lineWidth = width; linesCtx.strokeStyle = ink;
-      linesCtx.beginPath();
-      for (const run of track.runs) {
-        run.forEach((point, i) => {
-          const { x, y } = mapPoint(point.lat, point.lon, w, h);
-          if (i) linesCtx.lineTo(x, y); else linesCtx.moveTo(x, y);
-        });
-      }
-      linesCtx.stroke();
-    }
+  if (!field.pressure) return;
+  const runs = contours(field.pressure, isobarStep(), field.rows, field.cols);
+  linesCtx.strokeStyle = '#000';
+  linesCtx.lineWidth = 1.25 * mapDpr;
+  linesCtx.beginPath();
+  for (let k = 0; k < runs.length; k += 4) {
+    linesCtx.moveTo(runs[k] * w, runs[k + 1] * h);
+    linesCtx.lineTo(runs[k + 2] * w, runs[k + 3] * h);
   }
-  const at = p && groundPoint(p.sgp4, p.turnAt);
-  if (!at || Math.abs(at.lat) >= MAP_TOP) return;
-  const { x, y } = mapPoint(at.lat, at.lon, w, h);
-  linesCtx.fillStyle = '#000';
-  linesCtx.fillRect(x - 5 * line, y - 5 * line, 10 * line, 10 * line);
-  linesCtx.fillStyle = p.net ? NET_INK : SGP4_INK;
-  linesCtx.fillRect(x - 3 * line, y - 3 * line, 6 * line, 6 * line);
+  linesCtx.stroke();
+  const size = Math.round(Math.max(10, Math.min(w / mapDpr / 60, 14)) * mapDpr);
+  linesCtx.font = monoFont(size);
+  linesCtx.textBaseline = 'middle';
+  const labelOf = mark => `${mark.kind}${Math.round(mark.value)}`, tileH = size * 1.4;
+  const here = mapPoint(HERE_LAT, HERE_LON, w, h), clearOfHere = { x: here.x - tileH, y: here.y - tileH, w: 2 * tileH, h: 2 * tileH };
+  const marks = pressureMarks(field.pressure, field.rows, field.cols);
+  for (const box of placeMarks(marks, w, h, mark => linesCtx.measureText(labelOf(mark)).width + size * .5, tileH, clearOfHere, Math.floor(mapW / MARK_PX))) {
+    linesCtx.fillStyle = '#000';
+    linesCtx.fillRect(box.x, box.y, box.w, box.h);
+    linesCtx.fillStyle = '#f2f2f2';
+    linesCtx.fillText(labelOf(box.mark), box.x + size * .25, box.y + tileH / 2);
+  }
 }
 
 const degrees = (deg, plus, minus) => `${Math.abs(deg).toFixed(1)}${deg < 0 ? minus : plus}`;
@@ -121,6 +120,7 @@ function mapReadout() {
       const { index } = gridIndex(at.lat, at.lon, field.rows, field.cols);
       text += `  cloud ${Math.round(field.grid[index])}%`;
       if (field.temp) text += `  ${field.temp[index]}°C`;
+      if (field.pressure) text += `  ${Math.round(field.pressure[index])} hPa`;
     }
   } else if (field.kind === 'network') {
     const place = (today.places || []).find(p => /montr/i.test(p.place));
@@ -136,17 +136,18 @@ function mapSource() {
   $('map-net').hidden = field.kind !== 'network';
   let from = settled ? 'no forecast reached this page' : 'loading forecast', label = from, day = null;
   if (field.kind === 'network') {
-    from = 'cloud, ridge temperature, ';
+    from = `${sourceWords(field.nets, !!field.temp, !!field.pressure)}, `;
     // A narrow column would otherwise break the date at its hyphens.
     day = document.createElement('span');
     day.style.whiteSpace = 'nowrap';
     day.textContent = field.date;
-    label = `Cloud forecast map for ${field.date} from the network.`;
+    label = `Forecast map for ${field.date} from the network.`;
   } else if (field.kind === 'meteo') {
     from = `open-meteo forecast, ${new Date(field.at).toISOString().slice(11, 16)} UTC`;
     label = `Cloud forecast map from Open-Meteo for ${new Date(field.at).toISOString().slice(0, 16).replace('T', ' ')} UTC.`;
   }
   $('map-from').replaceChildren(from, ...(day ? [day] : []));
+  $('legend').textContent = `0 .:-=+*#%@ 100${field.pressure ? `  lines ${isobarStep()} hPa` : ''}`;
   mapEl.setAttribute('aria-label', `${label} ${$('map-text').textContent}`);
 }
 
@@ -154,11 +155,14 @@ function refreshField() {
   const real = still ? opened : now(), today = todayOf(meta), frame = frameAt(real), kind = chooseField(today, isoDay(real), frame >= 0);
   const key = kind === 'network' ? `n${today.date}` : kind === 'meteo' ? `m${frame}` : 'none';
   if (key === field.key) return;
-  field = { kind, key, date: null, grid: null, temp: null, rows: GRID_ROWS, cols: GRID_COLS };
+  field = { kind, key, date: null, grid: null, temp: null, pressure: null, nets: [], rows: GRID_ROWS, cols: GRID_COLS };
   if (kind === 'network') {
     field.date = today.date;
     field.grid = today.cloud;
     field.temp = Array.isArray(today.temp) && today.temp.length === today.cloud.length ? today.temp : null;
+    // A file with no list predates the temperature and pressure networks, and only its cloud came from a network.
+    field.nets = Array.isArray(today.networks) ? today.networks : ['cloud'];
+    field.pressure = field.nets.includes('pressure') && Array.isArray(today.pressure) && today.pressure.length === today.cloud.length ? today.pressure : null;
   } else if (kind === 'meteo') {
     const cells = weather.rows * weather.columns;
     field.grid = weather.data.subarray(frame * cells, (frame + 1) * cells);
@@ -181,7 +185,7 @@ function applyClouds(T) {
   } else {
     cloudsOwn = false;
     showFrame(T);
-    if (!weather || frameShown < 0) { if (cover || rain) { cover = rain = null; } if (meta && offsetDays) text = 'no clouds drawn at this time'; } else if (field.kind === 'network') text = `open-meteo clouds past ${field.date}`;
+    if (!weather || frameShown < 0) { if (cover || rain) { cover = rain = null; } } else if (field.kind === 'network') text = `open-meteo clouds past ${field.date}`;
   }
   if (note.textContent !== text) { note.textContent = text; note.hidden = !text; }
 }
@@ -211,7 +215,7 @@ mapEl.addEventListener('pointermove', e => {
   if (!mapPress) { if (e.pointerType === 'mouse') showAt(place); return; }
   if (!mapPress.dragging && Math.hypot(e.clientX - mapPress.x, e.clientY - mapPress.y) >= DRAG_PX) mapPress.dragging = true;
   if (mapPress.dragging) {
-    aim = null; view.follow = false; view.yaw = place.lon; view.pitch = place.lat; dirty = true;
+    aim = null; view.yaw = place.lon; view.pitch = place.lat; dirty = true;
     showAt(place);
   }
 });
@@ -219,7 +223,6 @@ mapEl.addEventListener('pointerup', e => {
   if (mapPress && !mapPress.dragging) {
     const place = placeOnMap(e), cell = mapCell(place.lat, place.lon, mCols, mRows), here = hereCell();
     aim = { yaw: place.lon, pitch: place.lat };
-    view.follow = false;
     tapped = cell && here && cell.col === here.col && cell.row === here.row ? null : place;
     mapReadout();
   }
@@ -232,3 +235,20 @@ mapEl.addEventListener('pointerleave', () => { if (!mapPress) { hovered = null; 
 
 // Where the page scrolls, a vertical swipe on the map has to scroll it instead of turning the globe.
 function mapTouch() { mapEl.style.touchAction = document.documentElement.scrollHeight > innerHeight ? 'pan-y' : 'none'; }
+
+const dots = download(`${FORECAST}sats.bin`).catch(() => download('sats.bin')).then(buffer => {
+  orb = loadOrbits(buffer);
+  pos = new Float32Array(orb.n * 3);
+  orbitsAt(orb, clock(), pos);
+  $('count').textContent = `${orb.n.toLocaleString('en-US')} objects, CelesTrak`;
+  dirty = true;
+}).catch(() => { $('count').textContent = 'satellites did not load'; });
+const info = fetch(`${FORECAST}forecast.json`).then(r => (r.ok ? r.json() : Promise.reject(r.status))).then(data => { meta = data; dirty = true; }).catch(() => { meta = null; });
+const planetLoad = download(`${FORECAST}planet.bin`).then(buffer => { loadWeather(buffer); dirty = true; }).catch(() => {});
+// Until both have answered the map says it is loading; after that, an empty map means nothing reached the page.
+Promise.allSettled([info, planetLoad]).then(() => { settled = true; mapReadout(); mapSource(); });
+new ResizeObserver(() => { fit(); fitMap(); mapTouch(); }).observe(document.documentElement);
+new ResizeObserver(fit).observe(stage);
+new ResizeObserver(fitMap).observe(mapEl);
+addEventListener('resize', fit);
+fit(); fitMap(); mapReadout(); mapTouch(); requestAnimationFrame(loop);

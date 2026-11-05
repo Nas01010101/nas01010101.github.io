@@ -1,115 +1,6 @@
-// The viewer's pure parts against numbers written by the pipeline's Python, so the two sides cannot drift apart.
-// Fixtures come from forecast/drift.py and forecast/orbits.py; corrections-sample.bin is made from shifted copies of active-sample.csv.
-const test = require('node:test'), assert = require('node:assert'), fs = require('node:fs'), path = require('node:path');
-const { loadCorrections, correctionAt, lastMisses, applyCorrection } = require('../correct.js');
-const { parseCsv, loadCatalog, alignsWith, searchCatalog, elementRecord } = require('../catalog.js');
-const { loadOrbits } = require('../orbits.js');
-const { MAP_TOP, ZOOM_MIN, mapPlace, mapCell, mapPoint, mapAt, gridIndex, fieldAt, seenFrom, chooseField, trackSegments, wrapYaw, percentGlyph, zoomForOrbit } = require('../mapmath.js');
-const vm = require('node:vm');
-
-const read = name => fs.readFileSync(path.join(__dirname, name));
-const bytes = buf => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length);
-const catalog = loadCatalog(read('active-sample.csv').toString());
-// In this context, because the bundle checks instanceof Date.
-const sgp4 = vm.runInThisContext(`(() => { ${read('../vendor/sgp4.js')}; return satellite; })()`);
-
-function tinyTable() {
-  const n = 2, buffer = new ArrayBuffer(28 + n * (4 + 24 + 4)), view = new DataView(buffer);
-  new Uint8Array(buffer).set(Buffer.from('2026-11-20'));
-  view.setUint32(12, n, true); view.setUint32(16, 4, true);
-  [1, 3, 7, 15].forEach((h, i) => view.setUint16(20 + 2 * i, h, true));
-  new Int32Array(buffer, 28, n).set([100, 200]);
-  const grid = new Int16Array(buffer, 28 + 8, n * 12);
-  for (let i = 0; i < 4; i++) grid.set([10 * (i + 1), 20 * (i + 1), -30 * (i + 1)], (4 + i) * 3);
-  new Uint16Array(buffer, 28 + 8 + 48, 4).set([65535, 65535, 12, 9]);
-  return loadCorrections(buffer);
-}
-
-test('reads the file the pipeline writes', () => {
-  const want = JSON.parse(read('corrections-sample.json')), table = loadCorrections(bytes(read('corrections-sample.bin')));
-  assert.equal(table.date, want.date);
-  assert.equal(table.n, want.count);
-  assert.deepStrictEqual(table.horizons, [1, 3, 7, 15]);
-  for (const [h, km] of Object.entries(want.km)) {
-    const got = correctionAt(table, want.norad, +h);
-    km.forEach((x, axis) => assert.ok(Math.abs(got[axis] - x) <= .0501, `${h}d axis ${axis}: ${got[axis]} vs ${x}`));
-  }
-});
-
-test('refuses a cut correction file', () => {
-  const data = bytes(read('corrections-sample.bin'));
-  assert.throws(() => loadCorrections(data.slice(0, data.byteLength - 4)), /size/);
-  assert.throws(() => loadCorrections(new ArrayBuffer(10)), /size/);
-});
-
-test('a file with no objects has no answers', () => {
-  const buffer = new ArrayBuffer(28), view = new DataView(buffer);
-  view.setUint32(16, 4, true);
-  [1, 3, 7, 15].forEach((h, i) => view.setUint16(20 + 2 * i, h, true));
-  assert.equal(correctionAt(loadCorrections(buffer), 100, 3), null);
-});
-
-test('interpolates between horizons in dt squared and stays inside them', () => {
-  const table = tinyTable();
-  assert.deepStrictEqual(correctionAt(table, 200, 1), [1, 2, -3]);
-  assert.deepStrictEqual(correctionAt(table, 200, 15), [4, 8, -12]);
-  // k = (4 - 1) / (9 - 1) = .375 between 1 and 2 times the first row.
-  const mid = correctionAt(table, 200, 2);
-  [1.375, 2.75, -4.125].forEach((x, i) => assert.ok(Math.abs(mid[i] - x) < 1e-9));
-  assert.equal(correctionAt(table, 200, .99), null);
-  assert.equal(correctionAt(table, 200, 15.01), null);
-  assert.equal(correctionAt(table, 999, 3), null);
-});
-
-test('reads whether the last forecast was checked', () => {
-  const table = tinyTable();
-  assert.equal(lastMisses(table, 100), null);
-  assert.deepStrictEqual(lastMisses(table, 200), [1.2, .9]);
-  assert.equal(lastMisses(table, 999), null);
-});
-
-test('a correction lands where the Python side measured the truth', () => {
-  for (const { r, v, c, true: truth } of JSON.parse(read('curvilinear-vectors.json'))) {
-    const got = applyCorrection(r, v, c);
-    assert.ok(Math.hypot(got[0] - truth[0], got[1] - truth[1], got[2] - truth[2]) < .001, JSON.stringify({ got, truth }));
-  }
-});
-
-test('the browser SGP4 matches the one the pipeline scores with', () => {
-  for (const { norad, ms, r, v } of JSON.parse(read('sgp4-vectors.json'))) {
-    const pv = sgp4.propagate(sgp4.json2satrec(elementRecord(catalog, catalog.index.get(norad))), new Date(ms));
-    const { x, y, z } = pv.position, far = Math.hypot(x - r[0], y - r[1], z - r[2]);
-    assert.ok(far < .001, `${norad} is ${far} km off`);
-    assert.ok(Math.hypot(pv.velocity.x - v[0], pv.velocity.y - v[1], pv.velocity.z - v[2]) < 1e-5);
-  }
-});
-
-test('parses quoted names and missing line ends', () => {
-  assert.deepStrictEqual(parseCsv('a,"b, ""c"""\r\n1,2'), [['a', 'b, "c"'], ['1', '2']]);
-});
-
-test('finds by number first, then by name', () => {
-  const norad = catalog.norads[5];
-  assert.equal(searchCatalog(catalog, String(norad))[0], 5);
-  const name = catalog.names[7].slice(0, 5).toLowerCase();
-  const hits = searchCatalog(catalog, name.toUpperCase());
-  assert.ok(hits.length >= 1 && hits.every(i => catalog.lower[i].includes(name)));
-  assert.deepStrictEqual(searchCatalog(catalog, '   '), []);
-  assert.deepStrictEqual(searchCatalog(catalog, 'no such object here'), []);
-  assert.equal(searchCatalog(catalog, 'a', 3).length, 3);
-});
-
-test('only a catalog in the same order as the dots aligns', () => {
-  const rows = catalog.rows, col = name => catalog.head.indexOf(name);
-  const buffer = new ArrayBuffer(8 + rows.length * 32), f = new Float32Array(buffer, 8);
-  rows.forEach((r, i) => f.set([0, r[col('MEAN_MOTION')], r[col('ECCENTRICITY')], r[col('INCLINATION')], r[col('RA_OF_ASC_NODE')], r[col('ARG_OF_PERICENTER')], r[col('MEAN_ANOMALY')], r[col('MEAN_MOTION_DOT')]], i * 8));
-  const orb = loadOrbits(buffer);
-  assert.ok(alignsWith(catalog, orb));
-  const swapped = loadCatalog(read('active-sample.csv').toString());
-  [swapped.anomalies[0], swapped.anomalies[1]] = [swapped.anomalies[1], swapped.anomalies[0]];
-  assert.ok(!alignsWith(swapped, orb));
-  assert.ok(!alignsWith({ ...catalog, rows: rows.slice(1) }, orb));
-});
+// The viewer's pure parts: map geometry, the choice of weather field, the height bands and the isobars.
+const test = require('node:test'), assert = require('node:assert');
+const { MAP_TOP, ZOOM_MIN, BANDS, BANDS_DIM, placeMarks, mapPlace, mapCell, mapPoint, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, terrainBand, contours, pressureMarks, sourceWords } = require('../mapmath.js');
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`);
 const DEG = Math.PI / 180;
@@ -178,17 +69,6 @@ test('one weather field: the network for its own day, otherwise the forecast fra
   assert.equal(chooseField({ ...today, net: false }, '2026-11-05', false), 'none');
 });
 
-test('a ground track breaks at the date line and where it leaves the map', () => {
-  const at = (lat, lon) => ({ lat: lat * DEG, lon: lon * DEG });
-  const across = trackSegments([at(0, 170), at(1, 179), at(2, -179), at(3, -170)]);
-  assert.deepStrictEqual(across.map(s => s.length), [2, 2]);
-  const off = trackSegments([at(50, 0), at(60, 10), at(70, 20), at(75, 30), at(60, 40), at(50, 50)]);
-  assert.deepStrictEqual(off.map(s => s.length), [2, 2]);
-  assert.deepStrictEqual(trackSegments([]), []);
-  // A lone point has no line to draw.
-  assert.deepStrictEqual(trackSegments([at(0, 0)]), []);
-});
-
 test('the map turns the camera the short way round', () => {
   close(wrapYaw(0), 0);
   close(wrapYaw(3 * Math.PI / 2), -Math.PI / 2);
@@ -205,13 +85,8 @@ test('each glyph stands for its share of the ramp and clear sky has none', () =>
   assert.equal(percentGlyph(100), 8);
 });
 
-test('picking a high orbit pulls the camera back far enough to hold it', () => {
-  assert.equal(zoomForOrbit(.9, 1.1), 1, 'a low orbit stays at the whole planet');
-  close(zoomForOrbit(6.6, 1), 1 / 6.6);
-  // Never closer than the view already is when that already shows it.
-  close(zoomForOrbit(2, .3), .3);
-  assert.equal(zoomForOrbit(1000, 1), ZOOM_MIN, 'held at the zoom limit');
-  assert.ok(ZOOM_MIN < 1 / 6.6, 'a geostationary ring fits');
+test('the camera can pull back far enough to hold a geostationary orbit', () => {
+  assert.ok(ZOOM_MIN < 1 / 6.6);
 });
 
 test('a pixel of the map gives back the place drawn there, and stays on the map', () => {
@@ -225,4 +100,130 @@ test('a place sits on the map where its cell is', () => {
   const { col, row } = mapCell(45.5 * DEG, -73.57 * DEG, 90, 16), { x, y } = mapPoint(45.5 * DEG, -73.57 * DEG, 900, 160);
   assert.equal(Math.floor(x / 10), col);
   assert.equal(Math.floor(y / 10), row);
+});
+
+test('height bands match the ground at known places', () => {
+  const band = (lat, lon) => terrainBand(lat * DEG, lon * DEG);
+  assert.equal(band(32, 88), 3, 'Tibet');
+  assert.equal(band(-16, -68), 3, 'Andes');
+  assert.equal(band(40, -106), 2, 'Rockies');
+  assert.equal(band(23, 10), 1, 'Sahara');
+  assert.equal(band(45.5, -73.6), 0, 'Montreal');
+  assert.equal(BANDS.length, 5);
+});
+
+test('white cloud glyphs and black isobars both stay readable on every band', () => {
+  const luminance = hex => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4));
+    return .2126 * r + .7152 * g + .0722 * b;
+  };
+  for (const hex of BANDS) {
+    const l = luminance(hex);
+    assert.ok((1.05) / (l + .05) >= 3, `${hex} against white`);
+    assert.ok((l + .05) / .05 >= 3, `${hex} against black`);
+  }
+  BANDS.forEach((hex, i) => {
+    const dim = luminance(BANDS_DIM[i]), grey = luminance('#969696');
+    assert.ok((grey + .05) / (dim + .05) >= 3, `dim cloud on ${BANDS_DIM[i]}`);
+    assert.ok((luminance(hex) + .05) / (dim + .05) >= 1.8, `${hex} must stand out from ${BANDS_DIM[i]}`);
+  });
+});
+
+const ROWS = 24, COLS = 48;
+// A pressure grid with one Gaussian dip or bump on a flat 1012 hPa background.
+function blob(row, col, depth, wide = 3) {
+  const grid = new Float32Array(ROWS * COLS);
+  for (let j = 0; j < ROWS; j++) {
+    for (let i = 0; i < COLS; i++) {
+      const di = Math.min(Math.abs(i - col), COLS - Math.abs(i - col)), dj = j - row;
+      grid[j * COLS + i] = 1012 + depth * Math.exp(-(di * di + dj * dj) / (2 * wide * wide));
+    }
+  }
+  return grid;
+}
+
+test('a flat field has no isobars and no highs or lows', () => {
+  const grid = new Float32Array(ROWS * COLS).fill(1012.5);
+  assert.equal(contours(grid, 8).length, 0);
+  assert.deepStrictEqual(pressureMarks(grid), []);
+});
+
+test('a low gives closed rings round its centre', () => {
+  // Centred on the map, so the outer ring stays clear of its clipped top and bottom edges.
+  const runs = contours(blob(12, 20, -40), 8), { x, y } = mapPoint(((12.5 / ROWS) - .5) * Math.PI, ((20.5 / COLS) - .5) * 2 * Math.PI, 1, 1);
+  assert.ok(runs.length > 0 && runs.length % 4 === 0);
+  // Every crossing lies on the map, and every run's two ends are one lattice cell apart at most.
+  for (let k = 0; k < runs.length; k += 4) {
+    for (const value of runs.slice(k, k + 4)) assert.ok(value >= 0 && value <= 1);
+    assert.ok(Math.abs(runs[k] - runs[k + 2]) < .02 && Math.abs(runs[k + 1] - runs[k + 3]) < .1);
+  }
+  // Closed: each end of a run is shared with exactly one other run.
+  const ends = new Map();
+  for (let k = 0; k < runs.length; k += 2) {
+    const key = `${runs[k].toFixed(6)},${runs[k + 1].toFixed(6)}`;
+    ends.set(key, (ends.get(key) || 0) + 1);
+  }
+  assert.ok([...ends.values()].every(count => count === 2), 'an open end');
+  // The rings surround the centre on all four sides.
+  const xs = [], ys = [];
+  for (let k = 0; k < runs.length; k += 2) { xs.push(runs[k]); ys.push(runs[k + 1]); }
+  assert.ok(Math.min(...xs) < x && Math.max(...xs) > x && Math.min(...ys) < y && Math.max(...ys) > y);
+});
+
+test('isobars wrap across the date line without a line across the map', () => {
+  const runs = contours(blob(12, 0, -40), 8);
+  assert.ok(runs.length > 0);
+  let wraps = 0;
+  for (let k = 0; k < runs.length; k += 4) if (Math.abs(runs[k] - runs[k + 2]) > .5) wraps++;
+  // A segment in the seam cell runs to its east edge; none of them cross the whole map at drawing scale.
+  assert.equal(wraps, 0);
+});
+
+test('a low and a high are marked where they are, with their values', () => {
+  const [low] = pressureMarks(blob(14, 20, -30));
+  assert.equal(low.kind, 'L');
+  close(low.lat, (14.5 / ROWS - .5) * Math.PI);
+  close(low.lon, (20.5 / COLS - .5) * 2 * Math.PI);
+  close(low.value, 982, 1);
+  const [high] = pressureMarks(blob(8, 40, 25));
+  assert.equal(high.kind, 'H');
+  close(high.value, 1037, 1);
+});
+
+test('a weak wobble is not a high or low, and two marks never sit on top of each other', () => {
+  assert.deepStrictEqual(pressureMarks(blob(14, 20, -2)), []);
+  const twin = blob(14, 20, -30), other = blob(14, 23, -20);
+  const both = twin.map((v, i) => v + other[i] - 1012);
+  assert.equal(pressureMarks(both).filter(m => m.kind === 'L').length, 1);
+});
+
+const meets = (a, b) => !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+
+test('a label near the map edge stays whole inside it', () => {
+  const marks = [{ lat: MAP_TOP * .99, lon: 3.13 }, { lat: -MAP_TOP * .99, lon: -3.13 }];
+  const placed = placeMarks(marks, 400, 150, () => 50, 20, null, 9);
+  assert.equal(placed.length, 2);
+  for (const box of placed) assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.w <= 400 && box.y + box.h <= 150);
+});
+
+test('a label moves off the avoided box or is dropped, and labels never overlap', () => {
+  const at = mapPoint(.5, -1.2, 400, 150), avoid = { x: at.x - 10, y: at.y - 10, w: 20, h: 20 };
+  const [moved] = placeMarks([{ lat: .5, lon: -1.2 }], 400, 150, () => 40, 14, avoid, 9);
+  assert.ok(moved && !meets(moved, avoid));
+  const pile = Array.from({ length: 12 }, () => ({ lat: .5, lon: -1.2 })), placed = placeMarks(pile, 400, 150, () => 40, 14, avoid, 99);
+  assert.ok(placed.length < 12);
+  placed.forEach((a, i) => { assert.ok(!meets(a, avoid)); placed.slice(i + 1).forEach(b => assert.ok(!meets(a, b))); });
+});
+
+test('the limit keeps the strongest marks, the first ones given', () => {
+  const marks = [{ lat: 0, lon: -2 }, { lat: 0, lon: 0 }, { lat: 0, lon: 2 }];
+  assert.deepStrictEqual(placeMarks(marks, 400, 150, () => 40, 14, null, 2).map(p => p.mark), marks.slice(0, 2));
+  assert.deepStrictEqual(placeMarks(marks, 400, 150, () => 40, 14, null, 0), []);
+});
+
+test('the caption names only what a network made', () => {
+  assert.equal(sourceWords(['cloud'], true, false), 'cloud, ridge temperature');
+  assert.equal(sourceWords(['cloud', 'pressure'], true, true), 'cloud, pressure, ridge temperature');
+  assert.equal(sourceWords(['cloud', 'temp', 'pressure'], true, true), 'cloud, temperature, pressure');
+  assert.equal(sourceWords(['cloud', 'temp', 'pressure'], false, false), 'cloud');
 });

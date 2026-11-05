@@ -1,25 +1,22 @@
-// The planet at true scale, each object at its true height. earthmap.js prints the forecast under it, earthpick.js follows one object.
+// The planet at true scale, each object at its true height. earthmap.js prints the forecast under it.
 'use strict';
 const $ = id => document.getElementById(id);
 const cv = $('sky'), ctx = cv.getContext('2d'), orbitCv = $('orbit'), orbitCtx = orbitCv.getContext('2d', { alpha: true }), stage = $('stage');
 const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const ZOOM_MAX = 20000, ZOOM_CLOSE = 6, SLICES = 15, DAY_MS = 864e5, SUN_MS = 30000, READ_MS = 1000;
-const NET_INK = '#36d07f', SGP4_INK = '#e6e6e6', RING_INK = '#8c8c8c';
-const view = { yaw: HERE_LON, pitch: 25 * RAD, zoom: 1, follow: false };
-const params = new URLSearchParams(location.search), opened = now();
+const ZOOM_MAX = 20000, SLICES = 15, SUN_MS = 30000;
+const view = { yaw: HERE_LON, pitch: 25 * RAD, zoom: 1 };
+const opened = now();
 
 let W = 0, H = 0, dpr = 0, cols, rows, cwD, chD, cw, ch, atlas, g, c, pg, pc, stars = [];
-let orb = null, pos = null, spots = null, slice = 0, meta = null, catalog = null, catalogLoad = null, table = null, netLoad = null;
-let offsetDays = 0, timeTouched = false, moved = false, picked = null, shownPlace = null, track = null;
-let dirty = true, last = 0, cost = 0, sunAt = 0, readAt = 0;
+let orb = null, pos = null, slice = 0, meta = null;
+let dirty = true, last = 0, cost = 0, sunAt = 0;
 
-const clock = () => (still ? opened : now()) + offsetDays * DAY_MS;
+const clock = () => (still ? opened : now());
 const radius = () => Math.min(W, H) * .44 * view.zoom;
 const scale = () => Math.min(devicePixelRatio || 1, 2);
-const gmst = ms => satellite.gstime(new Date(ms));
+const gmst = ms => (280.46061837 + 360.98564736629 * (ms / 864e5 + 2440587.5 - 2451545)) * RAD;
 const clampZoom = z => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 const monoFont = size => `${size}px ${getComputedStyle(document.documentElement).getPropertyValue('--mono')}`;
-const say = text => { $('say').textContent = text; };
 
 // Earth-fixed vector, any unit, to the camera's frame: x right, y up, z toward the viewer.
 function turn(x, y, z) {
@@ -98,35 +95,26 @@ function drawPlanet(T) {
   }
 }
 
-// Every dot's place on screen in CSS pixels, NaN when behind the planet, inside it or off screen.
-function projectDots(T) {
-  const spin = gmst(T) + view.yaw, cs = Math.cos(spin), sn = Math.sin(spin), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch), R = radius();
-  for (let i = 0; i < orb.n; i++) {
-    const a = pos[i * 3], b = pos[i * 3 + 1], e = pos[i * 3 + 2], ez = a * cs + b * sn, qx = b * cs - a * sn;
-    const sy = e * cp - ez * sp, sz = e * sp + ez * cp, flat = qx * qx + sy * sy, x = W / 2 + R * qx, y = H / 2 - R * sy;
-    const hidden = (sz < 0 && flat < 1) || a * a + b * b + e * e <= 1 || x < 0 || x > W || y < 0 || y > H;
-    spots[i * 2] = hidden ? NaN : x; spots[i * 2 + 1] = y;
-  }
-}
-
 function drawDots(T) {
   orbitCtx.clearRect(0, 0, orbitCv.width, orbitCv.height);
   if (!orb) return;
-  projectDots(T);
-  const size = Math.max(1, dpr * (W < 700 ? .5 : .75)), skip = picked ? picked.row : -1;
+  const spin = gmst(T) + view.yaw, cs = Math.cos(spin), sn = Math.sin(spin), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch), R = radius();
+  const size = Math.max(1, dpr * (W < 700 ? .5 : .75));
   orbitCtx.fillStyle = W < 700 ? 'rgba(255,255,255,.38)' : 'rgba(255,255,255,.6)';
   orbitCtx.beginPath();
   for (let i = 0; i < orb.n; i++) {
-    const x = spots[i * 2];
-    if (x === x && i !== skip) orbitCtx.rect(x * dpr, spots[i * 2 + 1] * dpr, size, size);
+    const a = pos[i * 3], b = pos[i * 3 + 1], e = pos[i * 3 + 2], ez = a * cs + b * sn, qx = b * cs - a * sn;
+    const sy = e * cp - ez * sp, sz = e * sp + ez * cp, flat = qx * qx + sy * sy, x = W / 2 + R * qx, y = H / 2 - R * sy;
+    if ((sz < 0 && flat < 1) || a * a + b * b + e * e <= 1 || x < 0 || x > W || y < 0 || y > H) continue;
+    orbitCtx.rect(x * dpr, y * dpr, size, size);
   }
   orbitCtx.fill();
 }
 
 function drawScale() {
-  // Close in, the planet is a wall of glyphs behind the two points, so it recedes as the zoom grows.
+  // Close in, the planet is a wall of glyphs behind the dots, so it recedes as the zoom grows.
   cv.style.opacity = Math.max(.3, 1 - .9 * Math.max(0, Math.log10(view.zoom / 2))).toFixed(2);
-  const shown = view.zoom > 2 || !!picked;
+  const shown = view.zoom > 2;
   $('scale').hidden = !shown;
   if (!shown) return;
   const pxPerKm = radius() / RE, wanted = 100 / pxPerKm, unit = 10 ** Math.floor(Math.log10(wanted));
@@ -141,23 +129,14 @@ function tick() {
   applyClouds(T);
   if (cover !== before) dirty = true;
   stepAim();
-  if (orb && moved) { orbitsAt(orb, T, pos); moved = false; } else if (orb && !still) {
+  if (orb && !still) {
     orbitsAt(orb, T, pos, Math.floor(slice * orb.n / SLICES), Math.floor((slice + 1) * orb.n / SLICES));
     slice = (slice + 1) % SLICES;
   }
-  const p = picked && placePicked(T);
-  refreshTrack(T);
-  if (p && view.follow) followPicked(p);
   const nowMs = performance.now();
   if (dirty || (!still && nowMs - sunAt > SUN_MS)) { drawPlanet(T); drawScale(); sunAt = nowMs; }
-  if (dirty || !still) {
-    drawDots(T);
-    if (p) { drawRing(p); drawMarks(p); }
-    drawMapLines(p);
-  }
+  if (dirty || !still) drawDots(T);
   drawMap();
-  if (picked && (dirty || nowMs - readAt > READ_MS)) { updateRead(T, p); readAt = nowMs; }
-  shownPlace = p;
   dirty = false;
 }
 
@@ -171,9 +150,9 @@ function loop(t) {
   requestAnimationFrame(loop);
 }
 
-// Pointer: one finger or mouse turns, two pinch, a press that does not travel picks.
+// Pointer: one finger or mouse turns, two pinch.
 const pointers = new Map();
-let pressX = 0, pressY = 0, travelled = 0, pinch = 0;
+let pinch = 0;
 
 function nudge(dx, dy) {
   const R = radius();
@@ -186,23 +165,11 @@ function zoomAt(factor, x, y) {
   const before = radius();
   view.zoom = clampZoom(view.zoom * factor);
   const after = radius();
-  if (!view.follow) {
-    // Keeps the ground under the cursor in place.
-    const gain = 1 / before - 1 / after, px = x - W / 2, py = y - H / 2;
-    view.yaw += px * gain / Math.max(Math.cos(view.pitch), .2);
-    view.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, view.pitch - py * gain));
-  }
+  // Keeps the ground under the cursor in place.
+  const gain = 1 / before - 1 / after, px = x - W / 2, py = y - H / 2;
+  view.yaw += px * gain / Math.max(Math.cos(view.pitch), .2);
+  view.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, view.pitch - py * gain));
   dirty = true;
-}
-
-function dotAt(x, y, reach) {
-  if (!orb) return -1;
-  let best = -1, bestSq = reach * reach;
-  for (let i = 0; i < orb.n; i++) {
-    const dx = spots[i * 2] - x, dy = spots[i * 2 + 1] - y, sq = dx * dx + dy * dy;
-    if (sq < bestSq) { bestSq = sq; best = i; }
-  }
-  return best;
 }
 
 // The stage is one row of the page, so pointers are measured from its own corner.
@@ -211,8 +178,7 @@ const onStage = (x, y) => { const box = stage.getBoundingClientRect(); return [x
 stage.addEventListener('pointerdown', e => {
   stage.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 1) { pressX = e.clientX; pressY = e.clientY; travelled = 0; }
-  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); travelled = 99; }
+  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); }
   stage.classList.add('moving');
   aim = null;
   $('hint').hidden = true;
@@ -228,23 +194,18 @@ stage.addEventListener('pointermove', e => {
     pinch = apart;
     return;
   }
-  travelled = Math.max(travelled, Math.hypot(e.clientX - pressX, e.clientY - pressY));
-  if (travelled >= 5) { view.follow = false; nudge(dx, dy); }
+  nudge(dx, dy);
 });
 function release(e) {
-  const had = pointers.delete(e.pointerId);
+  pointers.delete(e.pointerId);
   if (!pointers.size) stage.classList.remove('moving');
   pinch = 0;
-  if (e.type !== 'pointerup' || !had || pointers.size || travelled >= 5) return;
-  const row = dotAt(...onStage(e.clientX, e.clientY), e.pointerType === 'touch' ? 20 : 8);
-  if (row >= 0) pick(row);
 }
 stage.addEventListener('pointerup', release);
 stage.addEventListener('pointercancel', release);
 stage.addEventListener('wheel', e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * .0015), ...onStage(e.clientX, e.clientY)); }, { passive: false });
 stage.addEventListener('keydown', e => {
   const step = radius() * .08, moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
-  if (moves[e.key]) { view.follow = false; aim = null; nudge(...moves[e.key]); e.preventDefault(); } else if (e.key === '+' || e.key === '=') zoomAt(1.25, W / 2, H / 2);
+  if (moves[e.key]) { aim = null; nudge(...moves[e.key]); e.preventDefault(); } else if (e.key === '+' || e.key === '=') zoomAt(1.25, W / 2, H / 2);
   else if (e.key === '-' || e.key === '_') zoomAt(.8, W / 2, H / 2);
-  else if (e.key === 'Escape') clearPick();
 });
