@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Earth in 3D</title>
+<meta name="description" content="The Earth at true scale with every tracked object at its true height. Pick a satellite to see where SGP4 and a neural network put it.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--net:#36d07f;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+*{box-sizing:border-box}
+html{background:var(--bg);color:var(--fg);font:12px/1.714 var(--mono);-webkit-text-size-adjust:100%}
+@media (min-width:700px){html{font-size:14px}}
+body{margin:0;height:100vh;height:100svh;overflow:hidden;position:relative}
+#stage{position:absolute;inset:0;touch-action:none;cursor:grab;outline:0}
+#stage.moving{cursor:grabbing}
+#stage:focus-visible{outline:1px solid var(--muted);outline-offset:-1px}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+#orbit{pointer-events:none}
+/* The panels let the pointer through to the globe; only what they hold takes it back. */
+main{position:absolute;inset:0;pointer-events:none;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:16px}
+#panel{width:min(100%,40ch)}
+#panel a,#panel button,#panel input,#read{pointer-events:auto}
+#foot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+#read{width:min(100%,52ch)}
+#r-sgp4,#r-net{white-space:pre}
+#side{margin-left:auto;text-align:right}
+h1{margin:0;font:inherit}
+p{margin:0}
+.t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.m{color:var(--muted)}
+.net{color:var(--net)}
+.gap{margin-bottom:8px}
+::selection{background:var(--fg);color:var(--bg)}
+a{color:var(--fg);text-decoration:none;white-space:nowrap}
+a::before,button::before{content:"["}
+a::after,button::after{content:"]"}
+button{font:inherit;color:var(--fg);background:var(--bg);border:0;padding:0;margin:0;cursor:pointer;white-space:nowrap}
+button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+button:disabled{color:var(--muted);cursor:default}
+@media (hover:hover){a:hover,button:hover:not(:disabled){background:var(--fg);color:var(--bg)}}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
+label{display:block}
+input{display:block;width:100%;font:inherit;color:var(--fg);background:var(--bg);border:0;border-bottom:1px solid var(--muted);border-radius:0;padding:2px 0;outline-offset:2px}
+input::placeholder{color:var(--muted)}
+ul{list-style:none;margin:0;padding:0}
+#hits button{display:block;width:100%;text-align:left;overflow:hidden;text-overflow:ellipsis}
+#scale{display:flex;flex-direction:column;align-items:flex-end}
+#bar{display:block;height:2px;background:var(--fg)}
+/* A phone's thumb needs more than a line of text, and a smaller input font makes iOS zoom the page. */
+@media (pointer:coarse){button,a{padding:6px 2px}input{font-size:16px}#hits button{padding:8px 2px}}
+@media (max-width:699px){#foot{flex-direction:column-reverse;align-items:stretch}#side{margin:0}#hint{display:none}}
+@media (max-height:500px){main{display:block}#panel{position:absolute;top:16px;left:16px;width:40ch}#foot{position:absolute;top:16px;right:16px;bottom:16px;flex-direction:column-reverse;align-items:flex-end;justify-content:flex-start;width:calc(100% - 40ch - 64px)}#side{margin:0}#hint{display:none}}
+</style>
+</head>
+<body>
+<div id="stage" tabindex="0" role="application" aria-label="The Earth. Drag or use the arrow keys to turn, scroll or use plus and minus to zoom, Escape clears the satellite.">
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <canvas id="orbit" aria-hidden="true"></canvas>
+</div>
+<main>
+  <div id="panel">
+    <p class="gap"><span class="t"><a href="./">home</a></span></p>
+    <h1 class="gap"><span class="t">earth in 3d</span></h1>
+    <label for="find"><span class="t m">find a satellite by name or number</span></label>
+    <input id="find" type="search" autocomplete="off" spellcheck="false" placeholder="ISS, STARLINK, 25544">
+    <ul id="hits"></ul>
+    <p id="say" class="gap" role="status"><span class="t m"></span></p>
+    <p><span class="t m">time</span> <span id="times"><button data-days="0" aria-pressed="true">now</button> <button data-days="1" aria-pressed="false">+1d</button> <button data-days="3" aria-pressed="false">+3d</button> <button data-days="7" aria-pressed="false">+7d</button></span></p>
+    <p><span class="t m">clouds</span> <span id="sources"><button data-source="meteo" aria-pressed="true">open-meteo</button> <button data-source="model" aria-pressed="false" disabled>my model</button></span></p>
+    <p id="cloud-note"><span class="t m"></span></p>
+  </div>
+  <div id="foot">
+    <section id="read" aria-label="The picked satellite" hidden>
+      <p><span class="t" id="r-name"></span></p>
+      <p><span class="t m" id="r-at"></span></p>
+      <p><span class="t" id="r-sgp4"></span></p>
+      <p role="status"><span class="t" id="r-net"></span></p>
+      <p id="r-gap-row"><span class="t" id="r-gap"></span></p>
+      <p id="r-miss-row" hidden><span class="t m" id="r-miss"></span></p>
+      <p><button id="r-zoom">zoom to it</button> <button id="r-clear">clear</button></p>
+    </section>
+    <div id="side">
+      <p id="scale"><span class="t m" id="scale-text"></span><span id="bar"></span></p>
+      <p id="hint"><span class="t m">drag to turn, scroll to zoom, click a dot</span></p>
+      <p><span class="t m" id="count"></span></p>
+    </div>
+  </div>
+</main>
+<script src="orbits.js"></script>
+<script src="planet.js"></script>
+<script src="vendor/sgp4.js"></script>
+<script src="correct.js"></script>
+<script src="catalog.js"></script>
+<script src="earth.js"></script>
+</body>
+</html>
