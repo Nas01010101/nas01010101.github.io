@@ -86,7 +86,7 @@ const ok = body => Promise.resolve({ ok: true, json: () => Promise.resolve(body)
 
   // Each row's merged count matches its data-prs, and the rows add up to the headline.
   const rows = [...html.matchAll(/<tr data-prs="(\d+)">(.*?)<\/tr>/g)].map(([, prs, row]) => [+prs, ...[...row.matchAll(/class="num"><span class="t">(\d+)</g)].map(m => +m[1])]);
-  const [, total, merged, issues, reviews] = html.match(/<p data-prs="(\d+)"><span class="t">(\d+) merged, (\d+) issues, (\d+) reviews/).map(Number);
+  const [, total, merged, issues, reviews] = html.match(/<p data-prs="(\d+)"><span class="t">(\d+) PRs merged in \d+ repos, \d+ opened, (\d+) issues, (\d+) reviews/).map(Number);
   assert.strictEqual(total, merged);
   assert.strictEqual(rows.length, 7);
   rows.forEach(([prs, m]) => assert.strictEqual(prs, m));
