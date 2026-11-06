@@ -18,7 +18,8 @@ canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0}
 main{position:relative;z-index:1;padding:0 16px;min-height:100vh;min-height:100svh;display:flex;flex-direction:column}
 /* Every line of text clears the glyphs behind it, the way a terminal cell would. */
 .t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
-#reading{width:min(100%,70ch);margin:0 auto;padding-top:16px;text-align:center}
+/* On portrait screens the name stands above the planet; beside it, build() moves it back to the top of the text. */
+main>#who{width:min(100%,39ch);margin:0 auto;padding-top:16px}
 #what{position:absolute;z-index:1;width:max-content;transform:translateX(-50%);text-align:center}
 /* Columns line up, so the block keeps its own spaces and its lines start flush left. */
 #note{display:inline-block;text-align:left;white-space:pre}
@@ -30,8 +31,7 @@ main{position:relative;z-index:1;padding:0 16px;min-height:100vh;min-height:100s
 @media (min-width:600px) and (max-aspect-ratio:999/1000){html{font-size:16px}}
 @media (min-width:560px) and (min-aspect-ratio:1/1){.hero{align-items:flex-start;justify-content:center;padding:32px 0}}
 @media (min-width:760px) and (min-aspect-ratio:1/1){html{font-size:clamp(14px,min(.8vw,1.8vh),20px)}/* Margin, text, gap, planet, margin: the three gaps come out equal while the planet is .19 of the width. */
-.hero{padding-left:max(16px,calc(19.4vw - 13ch - 16px))}
-#reading{position:absolute;top:0;width:auto;max-width:70ch;margin:0;padding-top:32px;transform:translateX(-50%)}}
+.hero{padding-left:max(16px,calc(19.4vw - 13ch - 16px))}}
 h1{margin:0;font:inherit}
 p{margin:0}
 .m{color:var(--muted)}
@@ -58,11 +58,11 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 <canvas id="sky" aria-hidden="true"></canvas>
 <canvas id="orbit" aria-hidden="true"></canvas>
 <main>
-  <!-- Every Tuesday: add the paper at the top of reading.js. -->
-  <div id="reading">
-    <p><span class="t"><a href="reading.html">reading this week</a></span></p>
-    <div id="paper"></div>
-  </div>
+  <header id="who">
+    <h1><span class="t">nas</span></h1>
+    <p><span class="t m">anas elghoudane</span> <span class="t"><a href="https://github.com/Nas01010101">GitHub</a></span></p>
+    <p class="gap"><span class="t">anaselghoudane [at] gmail [dot] com</span></p>
+  </header>
   <div id="what">
     <p><span class="t" aria-hidden="true">↑</span><br><span class="t"><a href="flow.html">what am i seeing here</a></span></p>
     <p id="note"></p>
@@ -70,20 +70,18 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
   <div id="spin"><span class="t" aria-hidden="true">↙</span> <span class="t"><a href="earth.html">pale blue dot</a></span></div>
   <div class="hero">
     <div id="copy">
-      <h1><span class="t">nas</span></h1>
-      <p><span class="t m">anas elghoudane</span> <span class="t"><a href="https://github.com/Nas01010101">GitHub</a></span></p>
-      <p class="gap"><span class="t">anaselghoudane [at] gmail [dot] com</span></p>
       <table class="gap roles">
         <tr class="m"><th scope="col" colspan="2"><span class="t">currently</span></th></tr>
         <tr><td class="role"><span class="t m">Co-President</span></td><td><span class="t"><a href="https://udemai.ca">UdeM AI</a></span></td></tr>
         <tr><td class="role"><span class="t m">President</span></td><td><span class="t"><a href="https://dirobot.ca">DIROBOTS</a></span></td></tr>
         <tr><td class="role"><span class="t m">Biostats intern</span></td><td><span class="t"><a href="https://www.chumontreal.qc.ca/crchum">CHUM Research Centre</a></span></td></tr>
       </table>
-      <p data-prs="25"><span class="t">25 merged, 26 issues, 4 reviews</span></p>
+      <p><span class="t">107 contributions: 77 PRs opened</span></p>
+      <p data-prs="26"><span class="t">26 merged, 26 issues, 4 reviews</span></p>
       <table class="gap">
         <tr class="m"><th scope="col"><span class="t">open source</span></th><th scope="col" class="num"><span class="t">merged</span></th><th scope="col" class="num"><span class="t">issues</span></th><th scope="col" class="num"><span class="t">reviews</span></th></tr>
-        <tr data-prs="5"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Agoogle-deepmind&amp;type=pullrequests">Google DeepMind</a></span></td><td class="num"><span class="t">5</span></td><td class="num"><span class="t">7</span></td><td class="num"><span class="t">0</span></td></tr>
-        <tr data-prs="1"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3ANVIDIA&amp;type=pullrequests">NVIDIA</a></span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">0</span></td></tr>
+        <tr data-prs="4"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Agoogle-deepmind&amp;type=pullrequests">Google DeepMind</a></span></td><td class="num"><span class="t">4</span></td><td class="num"><span class="t">7</span></td><td class="num"><span class="t">0</span></td></tr>
+        <tr data-prs="3"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3ANVIDIA&amp;type=pullrequests">NVIDIA</a></span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">0</span></td></tr>
         <tr data-prs="1"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Anasa&amp;type=pullrequests">NASA</a></span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">0</span></td></tr>
         <tr data-prs="0"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Adeepseek-ai&amp;type=pullrequests">DeepSeek</a></span></td><td class="num"><span class="t">0</span></td><td class="num"><span class="t">2</span></td><td class="num"><span class="t">1</span></td></tr>
         <tr data-prs="8"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3AQwenLM&amp;type=pullrequests">QwenLM</a></span></td><td class="num"><span class="t">8</span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">0</span></td></tr>
@@ -91,7 +89,12 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
         <tr data-prs="6"><td><span class="t m">other repos</span></td><td class="num"><span class="t">6</span></td><td class="num"><span class="t">6</span></td><td class="num"><span class="t">1</span></td></tr>
       </table>
       <p class="split"><span class="t">active in</span><span class="t m">as of 2026-11-05</span></p>
-      <p><span class="t"><a href="https://github.com/google-deepmind/formal-conjectures/pulls?q=is%3Apr+author%3ANas01010101">formal-conjectures</a></span> <span class="t"><a href="https://github.com/pytorch/rl/pulls?q=is%3Apr+author%3ANas01010101">rl</a></span> <span class="t"><a href="https://github.com/huggingface/lerobot/pulls?q=is%3Apr+author%3ANas01010101">lerobot</a></span> <span class="t"><a href="https://github.com/google-deepmind/mujoco_warp/pulls?q=is%3Apr+author%3ANas01010101">mujoco_warp</a></span> <span class="t"><a href="https://github.com/google-deepmind/gemma/pulls?q=is%3Apr+author%3ANas01010101">gemma</a></span> <span class="t"><a href="https://github.com/NVIDIA/DALI/pulls?q=is%3Apr+author%3ANas01010101">DALI</a></span> <span class="t"><a href="https://github.com/deepseek-ai/DeepSpec/pulls?q=is%3Apr+author%3ANas01010101">DeepSpec</a></span></p>
+      <p class="gap"><span class="t"><a href="https://github.com/google-deepmind/formal-conjectures/pulls?q=is%3Apr+author%3ANas01010101">formal-conjectures</a></span> <span class="t"><a href="https://github.com/pytorch/rl/pulls?q=is%3Apr+author%3ANas01010101">rl</a></span> <span class="t"><a href="https://github.com/huggingface/lerobot/pulls?q=is%3Apr+author%3ANas01010101">lerobot</a></span> <span class="t"><a href="https://github.com/google-deepmind/mujoco_warp/pulls?q=is%3Apr+author%3ANas01010101">mujoco_warp</a></span> <span class="t"><a href="https://github.com/google-deepmind/gemma/pulls?q=is%3Apr+author%3ANas01010101">gemma</a></span> <span class="t"><a href="https://github.com/NVIDIA/DALI/pulls?q=is%3Apr+author%3ANas01010101">DALI</a></span> <span class="t"><a href="https://github.com/deepseek-ai/DeepSpec/pulls?q=is%3Apr+author%3ANas01010101">DeepSpec</a></span></p>
+      <!-- Every Tuesday: add the paper at the top of reading.js. -->
+      <div id="reading">
+        <p class="split"><span class="t">reading this week</span><span class="t"><a href="reading.html">all papers</a></span></p>
+        <div id="paper"></div>
+      </div>
     </div>
   </div>
 </main>
@@ -107,21 +110,20 @@ const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const lit = new Set();
 let pr = [], cols, rows, cwD, chD, cw, ch, atlas, g, c, pg, pc, stars = [], W = 0, H = 0, dpr = 0, place, boxes;
 
-const copy = document.getElementById('copy'), reading = document.getElementById('reading'), what = document.getElementById('what'), spin = document.getElementById('spin');
+const copy = document.getElementById('copy'), who = document.getElementById('who'), reading = document.getElementById('reading'), what = document.getElementById('what'), spin = document.getElementById('spin');
 reading.hidden = !READING.length;
 if (READING.length) renderPaper(document.getElementById('paper'), READING[0]);
 const side = matchMedia('(min-width:560px) and (min-aspect-ratio:1/1)');
-const column = matchMedia('(min-width:760px) and (min-aspect-ratio:1/1)');
 const scale = () => Math.min(devicePixelRatio || 1, 2);
 const planetX = () => (side.matches ? (copy.getBoundingClientRect().right + W) / 2 : W / 2);
-// Beside the text, the planet's caption and on larger screens the reading stay in the planet's column.
+// Beside the text, the planet's caption stays in the planet's column.
 function fitColumn() {
   const x = planetX(), width = side.matches ? 2 * Math.min(x - copy.getBoundingClientRect().right - 8, W - x - 8) : W - 32;
   what.style.maxWidth = `${width}px`;
-  reading.style.left = column.matches ? `${x}px` : '';
-  reading.style.width = column.matches ? `${width}px` : '';
 }
 function build() {
+  // A phone shows the name before the planet, so whoever opens the page sees who it is on the first screen.
+  if (side.matches ? who.parentElement !== copy : who.parentElement === copy) side.matches ? copy.prepend(who) : document.querySelector('main').prepend(who);
   const size = cv.getBoundingClientRect();
   W = size.width; H = size.height; dpr = scale();
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -144,7 +146,7 @@ function build() {
   what.style.left = `${Math.max(what.offsetWidth / 2 + 8, Math.min(W - what.offsetWidth / 2 - 8, place.x))}px`;
   what.style.top = `${place.y + place.R * RIM}px`;
   placeSpin(head());
-  boxes = [copy, reading, what, spin].filter(el => !el.hidden).map(el => { const r = el.getBoundingClientRect(); return { l: r.left - mx, r: r.right + mx, t: r.top + scrollY - my, b: r.bottom + scrollY + my }; });
+  boxes = [copy, who, what, spin].filter(el => !el.hidden).map(el => { const r = el.getBoundingClientRect(); return { l: r.left - mx, r: r.right + mx, t: r.top + scrollY - my, b: r.bottom + scrollY + my }; });
   // Counted by area. Text and planet cover most of a phone screen, so phones need more candidates to show any.
   stars = Array.from({ length: Math.round(W * H / (W < 700 ? 6600 : 23040)) }, (_, i) => ({
     x: hash(i, 1, 9), y: hash(i, 2, 8), b: hash(i, 7, 1), ph: hash(i, 4, 6) * 6.28, sp: .4 + 1.4 * hash(i, 5, 5),
@@ -179,10 +181,11 @@ function drawStars(t) {
     } else put(col, row, st.b > .8 ? PLUS : DOT, ink);
   }
 }
-const head = () => (reading.hidden ? 0 : reading.getBoundingClientRect().bottom + scrollY);
-// Up and to the right of the planet, just outside its atmosphere, and under the reading.
+const head = () => (side.matches ? 0 : who.getBoundingClientRect().bottom + scrollY);
+// Up and to the right of the planet, just outside its atmosphere, and under the name.
 function placeSpin(floor) {
-  const left = Math.min(place.x + place.R * .71, W - spin.offsetWidth - 8), dx = Math.max(0, left - place.x), edge = place.R * RIM;
+  // clientWidth leaves out a desktop scrollbar, which the canvas width includes.
+  const left = Math.min(place.x + place.R * .71, document.documentElement.clientWidth - spin.offsetWidth - 8), dx = Math.max(0, left - place.x), edge = place.R * RIM;
   spin.style.left = `${left}px`;
   spin.style.top = `${Math.max(floor + 4, place.y - (dx < edge ? Math.sqrt(edge * edge - dx * dx) : 0) - spin.offsetHeight)}px`;
 }
@@ -192,7 +195,7 @@ function globe() {
   // The link under the planet takes its own height out of the room.
   const link = what.offsetHeight + 4;
   if (!side.matches) { above += tag; const R = Math.min(W * .34, ((top - above - link) / 2 - 8) / RIM); return { x: W / 2, y: above + 8 + R * RIM + Math.max(0, (top - above - link - 16 - 2 * R * RIM) / 2), R }; }
-  // Beside the text: under the reading and clear of the text column.
+  // Beside the text: clear of the text column.
   const view = Math.min(H, Math.max(innerHeight, top + text.height));
   const fit = space => Math.min(W * .19, view * .35, space / 2 / RIM, (W - text.right) / 2 / RIM - 8), x = planetX();
   let room = view - link - above - 16, R = fit(room);

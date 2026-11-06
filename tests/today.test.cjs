@@ -54,7 +54,7 @@ const ok = body => Promise.resolve({ ok: true, json: () => Promise.resolve(body)
   assert.deepStrictEqual(full.rows.map(r => r.slice(0, 11).trim()), ['Montréal', 'Kyoto', 'Casablanca']);
   assert.deepStrictEqual(full.rows.map(r => r.slice(22).trim().split(/ +/)), [['9', '77%'], ['14', '65%'], ['-3', '12%']]);
   assert.match(full.detail, /^Montréal: sun(rise|set) \d\d:\d\d, 1008\u00a0hPa$/);
-  assert.strictEqual(full.source, 'our forecast, day mean, 800\u00a0km cell');
+  assert.strictEqual(full.source, "our model, today's mean, 800\u00a0km cell");
   // Columns line up under the heading at every row.
   for (const r of full.rows) assert.strictEqual(r.length, full.head.length, r);
   assert.strictEqual(full.head.indexOf('°C') + 2, full.rows[0].indexOf('9') + 1);

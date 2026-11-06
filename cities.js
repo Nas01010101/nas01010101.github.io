@@ -48,11 +48,11 @@ function cityLines(ms, today, subsolar) {
   const sun = nextSun(CITIES[0], ms, subsolar), here = values[0];
   const detail = [sun && `${sun.word} ${clockIn(CITIES[0].zone, sun.at)}`, here && here.pressure !== null && `${Math.round(here.pressure)} hPa`].filter(Boolean);
   return {
-    head: any ? ''.padEnd(11) + 'now'.padEnd(11) + '°C'.padStart(4) + 'cloud'.padStart(6) : '',
+    head: any ? ''.padEnd(11) + 'local'.padEnd(11) + '°C'.padStart(4) + 'cloud'.padStart(6) : '',
     rows,
     detail: detail.length ? `${CITIES[0].name}: ${detail.join(', ')}` : '',
     // A cell is 7.5 degrees on a side, so a coastal city's value mixes in the sea.
-    source: any ? 'our forecast, day mean, 800\u00a0km cell' : '',
+    source: any ? 'our model, today\'s mean, 800\u00a0km cell' : '',
   };
 }
 
