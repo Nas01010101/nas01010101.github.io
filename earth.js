@@ -86,8 +86,10 @@ function drawPlanet(T) {
       if (cell >= 0) c[i] = cell & 255;
     }
   }
-  const [hx, hy, hz] = direction(HERE_LAT, HERE_LON);
-  if (hz > 0) put(Math.floor(cx + hx * rx), Math.floor(cy - hy * ry), PLUS, HERE);
+  for (const { lat, lon, ink } of MARKS) {
+    const [hx, hy, hz] = direction(lat, lon);
+    if (hz > 0) put(Math.floor(cx + hx * rx), Math.floor(cy - hy * ry), PLUS, ink);
+  }
   for (let i = 0; i < g.length; i++) {
     if (g[i] === pg[i] && c[i] === pc[i]) continue;
     const col = i % cols, row = (i - col) / cols, px = col * cwD, py = row * chD;

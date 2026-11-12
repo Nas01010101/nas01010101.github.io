@@ -65,12 +65,15 @@ function drawMap() {
     const at = mapCell(view.pitch, wrapYaw(view.yaw), mCols, mRows), cell = at.row * mCols + at.col;
     if (mBand[cell] !== MAP_OFF) mLit[cell] = 1;
   }
-  const here = hereCell(), hereAt = here.row * mCols + here.col, tap = tapped && mapCell(tapped.lat, tapped.lon, mCols, mRows), tapAt = tap ? tap.row * mCols + tap.col : -1;
+  // Cell index to ink for every cross: the cities, then the tapped place unless a city holds that cell.
+  const crosses = new Map(MARKS.map(m => { const at = mapCell(m.lat, m.lon, mCols, mRows); return [at.row * mCols + at.col, m.ink]; }));
+  const tap = tapped && mapCell(tapped.lat, tapped.lon, mCols, mRows);
+  if (tap && !crosses.has(tap.row * mCols + tap.col)) crosses.set(tap.row * mCols + tap.col, INK_LIT);
   for (let i = 0; i < mGlyph.length; i++) {
     if (mBand[i] === MAP_OFF) continue;
     let glyph = mGlyph[i], ink = mLit[i] ? INK_LIT : INK_DIM, mark = 0;
     // A black tile and blank neighbours keep a one-cell mark readable inside a field of heavy glyphs.
-    if (i === hereAt) { glyph = PLUS; ink = HERE; mark = 1; } else if (i === tapAt) { glyph = PLUS; ink = INK_LIT; mark = 1; } else if (Math.abs(i - hereAt) === 1 || Math.abs(i - tapAt) === 1) glyph = -1;
+    if (crosses.has(i)) { glyph = PLUS; ink = crosses.get(i); mark = 1; } else if (crosses.has(i - 1) || crosses.has(i + 1)) glyph = -1;
     const state = ((glyph + 1) * 64 + ink * 2 + mLit[i]) * 2 + mark;
     if (state === mShown[i]) continue;
     mShown[i] = state;
@@ -103,9 +106,9 @@ function drawIsobars() {
   linesCtx.font = monoFont(size);
   linesCtx.textBaseline = 'middle';
   const labelOf = mark => `${mark.kind}${Math.round(mark.value)}`, tileH = size * 1.4;
-  const here = mapPoint(HERE_LAT, HERE_LON, w, h), clearOfHere = { x: here.x - tileH, y: here.y - tileH, w: 2 * tileH, h: 2 * tileH };
+  const clearOfCities = MARKS.map(m => { const at = mapPoint(m.lat, m.lon, w, h); return { x: at.x - tileH, y: at.y - tileH, w: 2 * tileH, h: 2 * tileH }; });
   const marks = pressureMarks(field.pressure, field.rows, field.cols);
-  for (const box of placeMarks(marks, w, h, mark => linesCtx.measureText(labelOf(mark)).width + size * .5, tileH, clearOfHere, Math.floor(mapW / MARK_PX))) {
+  for (const box of placeMarks(marks, w, h, mark => linesCtx.measureText(labelOf(mark)).width + size * .5, tileH, clearOfCities, Math.floor(mapW / MARK_PX))) {
     linesCtx.fillStyle = '#000';
     linesCtx.fillRect(box.x, box.y, box.w, box.h);
     linesCtx.fillStyle = '#f2f2f2';
@@ -202,10 +205,12 @@ function buildLegend() {
   const step = document.createElement('span');
   step.id = 'legend-step';
   item(swatch(BANDS[1], 'sw line'), step, ', H high, L low').id = 'legend-pressure';
-  const here = document.createElement('span');
-  here.className = 'here';
-  here.textContent = '+ ';
-  item(here, 'Montréal');
+  for (const { name, ink } of MARKS) {
+    const plus = document.createElement('span');
+    plus.style.color = INKS[ink];
+    plus.textContent = '+ ';
+    item(plus, name);
+  }
   item(swatch(BANDS_DIM[1]), swatch(BANDS[1]), 'bright: what the globe shows');
 }
 

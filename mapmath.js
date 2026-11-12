@@ -192,9 +192,9 @@ function pressureMarks(grid, rows = GRID_ROWS, cols = GRID_COLS, clear = 3, apar
   return kept;
 }
 
-// Label boxes for marks, strongest first, kept inside the w by h map and off `avoid` and each other. A label that fits nowhere within one tile of its point is dropped.
+// Label boxes for marks, strongest first, kept inside the w by h map and off `avoid` (one box or a list) and each other. A label that fits nowhere within one tile of its point is dropped.
 function placeMarks(marks, w, h, tileW, tileH, avoid, limit) {
-  const boxes = avoid ? [avoid] : [], placed = [];
+  const boxes = [].concat(avoid || []), placed = [];
   const clear = box => boxes.every(o => box.x + box.w <= o.x || o.x + o.w <= box.x || box.y + box.h <= o.y || o.y + o.h <= box.y);
   for (const mark of marks) {
     if (placed.length >= limit) break;

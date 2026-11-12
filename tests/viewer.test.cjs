@@ -246,6 +246,14 @@ test('a label moves off the avoided box or is dropped, and labels never overlap'
   placed.forEach((a, i) => { assert.ok(!meets(a, avoid)); placed.slice(i + 1).forEach(b => assert.ok(!meets(a, b))); });
 });
 
+test('labels keep off every box in a list of avoided boxes', () => {
+  const box = (lat, lon) => { const at = mapPoint(lat, lon, 400, 150); return { x: at.x - 10, y: at.y - 10, w: 20, h: 20 }; };
+  const avoid = [box(.5, -1.2), box(.6, 2.4)];
+  const placed = placeMarks([{ lat: .5, lon: -1.2 }, { lat: .6, lon: 2.4 }], 400, 150, () => 40, 14, avoid, 9);
+  assert.strictEqual(placed.length, 2);
+  placed.forEach(p => avoid.forEach(a => assert.ok(!meets(p, a))));
+});
+
 test('the limit keeps the strongest marks, the first ones given', () => {
   const marks = [{ lat: 0, lon: -2 }, { lat: 0, lon: 0 }, { lat: 0, lon: 2 }];
   assert.deepStrictEqual(placeMarks(marks, 400, 150, () => 40, 14, null, 2).map(p => p.mark), marks.slice(0, 2));

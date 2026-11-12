@@ -80,11 +80,17 @@ function coverFrom(clouds, wet, gr, gc) {
   cover = nextCover; rain = nextRain;
 }
 
-// Stars and text stay grey; colour belongs to the planet, plus one amber mark for Montréal.
+// Stars and text stay grey; colour belongs to the planet, plus one mark per city: amber Montréal, pink Kyoto, violet Casablanca.
 const RAMP = '.:-=+*#%@', GLYPHS = RAMP + '|';
-// The last six are land and sea seen through cloud: the surface's ink, a little paler.
-const INKS = ['#3a3a3a', '#666', '#969696', '#c8c8c8', '#f2f2f2', '#17406f', '#20609f', '#3a8ad0', '#6cb6ea', '#2f5f3c', '#4a8a4f', '#7bb35f', '#b9cf78', '#ffb347', '#4f7a58', '#6d9f70', '#9cc28a', '#3f6a95', '#5d8bb8', '#86b2dc'];
+// Indices 14 to 19 are land and sea seen through cloud: the surface's ink, a little paler.
+const INKS = ['#3a3a3a', '#666', '#969696', '#c8c8c8', '#f2f2f2', '#17406f', '#20609f', '#3a8ad0', '#6cb6ea', '#2f5f3c', '#4a8a4f', '#7bb35f', '#b9cf78', '#ffb347', '#4f7a58', '#6d9f70', '#9cc28a', '#3f6a95', '#5d8bb8', '#86b2dc', '#ff7ac6', '#b48cff'];
 const OCEAN = 5, LAND = 9, HERE = 13, CLOUD_LAND = 14, CLOUD_SEA = 17, RIM = 1.1;
+// The cities of cities.js, in its order; HERE stays Montréal's ink, which the page's CSS also uses.
+const MARKS = [
+  { name: 'Montréal', lat: HERE_LAT, lon: HERE_LON, ink: HERE },
+  { name: 'Kyoto', lat: 35.01 * RAD, lon: 135.77 * RAD, ink: 20 },
+  { name: 'Casablanca', lat: 33.57 * RAD, lon: -7.59 * RAD, ink: 21 },
+];
 const DOT = 0, PLUS = 4, DASH = 2, PIPE = 9;
 
 const STREAKS = 24, STREAK = .2;

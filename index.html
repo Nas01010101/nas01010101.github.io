@@ -8,7 +8,7 @@
 <meta name="description" content="Anas Elghoudane, mathematics and computer science undergraduate at the Université de Montréal.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
 *{box-sizing:border-box}
 /* 39 columns of the widest row at about .6em each, so a table always fits a narrow phone. */
 html{background:var(--bg);color:var(--fg);font:clamp(10px,calc((100vw - 32px) / 24),14px)/1.714 var(--mono);-webkit-text-size-adjust:100%}
@@ -35,7 +35,6 @@ main>#who{width:min(100%,39ch);margin:0 auto;padding-top:16px}
 h1{margin:0;font:inherit}
 p{margin:0}
 .m{color:var(--muted)}
-.here{color:var(--here)}
 ::selection{background:var(--fg);color:var(--bg)}
 .gap{margin-bottom:1.714rem}
 table{width:100%;border-collapse:collapse}
@@ -44,6 +43,8 @@ tr>:last-child{text-align:right}
 .roles{width:auto}
 .roles :last-child{text-align:left}
 .num{width:7ch;padding-left:1ch;text-align:right}
+/* Repos sit under the org row they add up to; an indent would push the table past 39 columns. */
+.repo a{color:var(--muted)}
 .split{display:flex;justify-content:space-between;gap:16px}
 .role{width:16ch}
 a{color:var(--fg);text-decoration:none;white-space:nowrap}
@@ -76,17 +77,24 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
         <tr><td class="role"><span class="t m">President</span></td><td><span class="t"><a href="https://dirobot.ca">DIROBOTS</a></span></td></tr>
         <tr><td class="role"><span class="t m">Biostats intern</span></td><td><span class="t"><a href="https://www.chumontreal.qc.ca/crchum">CHUM Research Centre</a></span></td></tr>
       </table>
-      <p class="split"><span class="t">107 open-source contributions</span><span class="t m">all time, as of 2026-11-06</span></p>
-      <p data-prs="26"><span class="t">26 PRs merged in 15 repos, 77 opened, 26 issues, 4 reviews</span></p>
+      <p class="split"><span class="t">116 open-source contributions</span><span class="t m">all time, as of 2026-11-11</span></p>
+      <p data-prs="31"><span class="t">31 PRs merged in 17 repos, 83 opened, 29 issues, 4 reviews</span></p>
       <table class="gap">
         <tr class="m"><th scope="col"><span class="t">open source</span></th><th scope="col" class="num"><span class="t">merged</span></th><th scope="col" class="num"><span class="t">issues</span></th><th scope="col" class="num"><span class="t">reviews</span></th></tr>
-        <tr data-prs="4"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Agoogle-deepmind&amp;type=pullrequests">Google DeepMind</a></span></td><td class="num"><span class="t">4</span></td><td class="num"><span class="t">7</span></td><td class="num"><span class="t">0</span></td></tr>
-        <tr data-prs="3"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3ANVIDIA&amp;type=pullrequests">NVIDIA</a></span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">0</span></td></tr>
+        <tr data-prs="8"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Agoogle-deepmind&amp;type=pullrequests">Google DeepMind</a></span></td><td class="num"><span class="t">8</span></td><td class="num"><span class="t">9</span></td><td class="num"><span class="t">0</span></td></tr>
+        <tr class="repo" data-prs="2"><td><span class="t m"><a href="https://github.com/google-deepmind/formal-conjectures/pulls?q=is%3Apr+author%3ANas01010101">formal-conjectures</a></span></td><td class="num"><span class="t m">2</span></td><td></td><td></td></tr>
+        <tr class="repo" data-prs="2"><td><span class="t m"><a href="https://github.com/google-deepmind/alphafold3/pulls?q=is%3Apr+author%3ANas01010101">alphafold3</a></span></td><td class="num"><span class="t m">2</span></td><td></td><td></td></tr>
+        <tr class="repo" data-prs="2"><td><span class="t m"><a href="https://github.com/google-deepmind/mujoco/pulls?q=is%3Apr+author%3ANas01010101">mujoco</a></span></td><td class="num"><span class="t m">2</span></td><td></td><td></td></tr>
+        <tr class="repo" data-prs="1"><td><span class="t m"><a href="https://github.com/google-deepmind/mujoco_warp/pulls?q=is%3Apr+author%3ANas01010101">mujoco_warp</a></span></td><td class="num"><span class="t m">1</span></td><td></td><td></td></tr>
+        <tr class="repo" data-prs="1"><td><span class="t m"><a href="https://github.com/google-deepmind/dm_pix/pulls?q=is%3Apr+author%3ANas01010101">dm_pix</a></span></td><td class="num"><span class="t m">1</span></td><td></td><td></td></tr>
+        <tr data-prs="4"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3ANVIDIA&amp;type=pullrequests">NVIDIA</a></span></td><td class="num"><span class="t">4</span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">0</span></td></tr>
+        <tr class="repo" data-prs="2"><td><span class="t m"><a href="https://github.com/NVIDIA/DALI/pulls?q=is%3Apr+author%3ANas01010101">DALI</a></span></td><td class="num"><span class="t m">2</span></td><td></td><td></td></tr>
+        <tr class="repo" data-prs="1"><td><span class="t m"><a href="https://github.com/NVIDIA/warp/pulls?q=is%3Apr+author%3ANas01010101">warp</a></span></td><td class="num"><span class="t m">1</span></td><td></td><td></td></tr>
+        <tr class="repo" data-prs="1"><td><span class="t m"><a href="https://github.com/NVIDIA/stdexec/pulls?q=is%3Apr+author%3ANas01010101">stdexec</a></span></td><td class="num"><span class="t m">1</span></td><td></td><td></td></tr>
         <tr data-prs="1"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Anasa&amp;type=pullrequests">NASA</a></span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">0</span></td></tr>
-        <tr data-prs="0"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Adeepseek-ai&amp;type=pullrequests">DeepSeek</a></span></td><td class="num"><span class="t">0</span></td><td class="num"><span class="t">2</span></td><td class="num"><span class="t">1</span></td></tr>
         <tr data-prs="8"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3AQwenLM&amp;type=pullrequests">QwenLM</a></span></td><td class="num"><span class="t">8</span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">0</span></td></tr>
         <tr data-prs="4"><td><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Aopenclaw&amp;type=pullrequests">OpenClaw</a></span></td><td class="num"><span class="t">4</span></td><td class="num"><span class="t">6</span></td><td class="num"><span class="t">2</span></td></tr>
-        <tr data-prs="6"><td><span class="t m">other repos</span></td><td class="num"><span class="t">6</span></td><td class="num"><span class="t">6</span></td><td class="num"><span class="t">1</span></td></tr>
+        <tr data-prs="6"><td><span class="t m">other repos</span></td><td class="num"><span class="t">6</span></td><td class="num"><span class="t">9</span></td><td class="num"><span class="t">2</span></td></tr>
       </table>
       <!-- Every Tuesday: add the paper at the top of reading.js. -->
       <div id="reading">
@@ -229,9 +237,11 @@ function drawPlanet(x, y, R, t) {
       if (cell >= 0) c[i] = cell & 255;
     }
   }
-  // Montréal, whenever it faces us, day or night.
-  const [hx, hy, hz] = toScreen(Math.cos(HERE_LAT) * Math.sin(HERE_LON - view), Math.sin(HERE_LAT), Math.cos(HERE_LAT) * Math.cos(HERE_LON - view));
-  if (hz > 0) put(Math.floor(cx + hx * rx), Math.floor(cy - hy * ry), PLUS, HERE);
+  // Each city, whenever it faces us, day or night.
+  for (const { lat, lon, ink } of MARKS) {
+    const [hx, hy, hz] = toScreen(Math.cos(lat) * Math.sin(lon - view), Math.sin(lat), Math.cos(lat) * Math.cos(lon - view));
+    if (hz > 0) put(Math.floor(cx + hx * rx), Math.floor(cy - hy * ry), PLUS, ink);
+  }
 }
 // Altitude is squeezed so the geostationary belt fits on screen; direction from Earth is true.
 const lift = r => 1 + .15 * Math.log(1 + (r - 1) * 6378 / 550);
@@ -279,9 +289,9 @@ function status() {
   const line = (text, muted) => { const el = document.createElement('span'); el.className = muted ? 't m' : 't'; el.textContent = text; return el; };
   if (lines.head) out.push(line(`  ${lines.head}`, true));
   lines.rows.forEach((row, k) => {
-    // Montréal leads with the same orange cross that marks it on the planet.
-    const el = line(k ? `  ${row}` : ` ${row}`, k > 0);
-    if (!k) { const plus = document.createElement('span'); plus.className = 'here'; plus.textContent = '+'; el.prepend(plus); }
+    // Each city leads with the same cross, in the same colour, that marks it on the planet.
+    const el = line(` ${row}`, k > 0), plus = document.createElement('span');
+    plus.style.color = INKS[MARKS[k].ink]; plus.textContent = '+'; el.prepend(plus);
     out.push(el);
   });
   if (lines.detail) out.push(line(`  ${lines.detail}`));
@@ -321,10 +331,12 @@ fetch(FORECAST + 'forecast.json').then(r => (r.ok ? r.json() : Promise.reject(r.
   if (now() - Date.parse(today.date) <= 2 * 864e5) forecast = today;
 }).catch(() => {}).finally(() => { status(); build(); paint(); });
 // Pointing at a repo lights one star per PR merged there; the total lights all of them.
-let from = 0;
+// A repo row lights its share of the stars of the org row above it.
+let from = 0, sub = 0;
 for (const el of document.querySelectorAll('[data-prs]')) {
-  const n = +el.dataset.prs, start = el.tagName === 'TR' ? from : 0;
-  if (el.tagName === 'TR') from += n;
+  const n = +el.dataset.prs, row = el.tagName === 'TR', repo = el.classList.contains('repo');
+  const start = !row ? 0 : repo ? sub : from;
+  if (repo) sub += n; else if (row) { sub = from; from += n; }
   const on = () => { lit.clear(); for (let k = 0; k < n; k++) lit.add(pr[(start + k) % pr.length]); paint(); };
   const off = () => { lit.clear(); paint(); };
   el.addEventListener('mouseenter', on); el.addEventListener('mouseleave', off);

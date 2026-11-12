@@ -15,6 +15,17 @@ const sky = { location: { search: '' }, URLSearchParams };
 vm.runInNewContext(`${fs.readFileSync(path.join(__dirname, '..', 'planet.js'), 'utf8').split('const smooth')[0]}; this.subsolar = subsolar;`, sky);
 const { subsolar } = sky;
 
+// Every city under the planet has a cross on it, each in an ink of its own.
+const inked = { location: { search: '' }, URLSearchParams, atob };
+vm.runInNewContext(`${fs.readFileSync(path.join(__dirname, '..', 'planet.js'), 'utf8').split('const STREAKS')[0]}; this.MARKS = MARKS; this.INKS = INKS;`, inked);
+assert.strictEqual(inked.MARKS.length, CITIES.length);
+CITIES.forEach((city, k) => {
+  const mark = inked.MARKS[k];
+  assert(Math.abs(mark.lat - city.lat * Math.PI / 180) < 1e-9 && Math.abs(mark.lon - city.lon * Math.PI / 180) < 1e-9, `${city.name}: mark not on the city`);
+  assert.strictEqual(inked.INKS.indexOf(inked.INKS[mark.ink]), mark.ink, `${city.name}: ink shared with the planet`);
+});
+assert.strictEqual(new Set(inked.MARKS.map(m => inked.INKS[m.ink])).size, CITIES.length, 'two cities share an ink');
+
 const NOW = Date.parse('2026-11-04T12:00Z');
 const CELLS = 24 * 48;
 const grid = (fill, at) => { const g = new Array(CELLS).fill(fill); for (const [i, v] of at) g[i] = v; return g; };
@@ -88,9 +99,15 @@ const ok = body => Promise.resolve({ ok: true, json: () => Promise.resolve(body)
   const rows = [...html.matchAll(/<tr data-prs="(\d+)">(.*?)<\/tr>/g)].map(([, prs, row]) => [+prs, ...[...row.matchAll(/class="num"><span class="t">(\d+)</g)].map(m => +m[1])]);
   const [, total, merged, issues, reviews] = html.match(/<p data-prs="(\d+)"><span class="t">(\d+) PRs merged in \d+ repos, \d+ opened, (\d+) issues, (\d+) reviews/).map(Number);
   assert.strictEqual(total, merged);
-  assert.strictEqual(rows.length, 7);
+  assert.strictEqual(rows.length, 6);
   rows.forEach(([prs, m]) => assert.strictEqual(prs, m));
   const sum = k => rows.reduce((a, r) => a + r[k], 0);
   assert.deepStrictEqual([sum(1), sum(2), sum(3)], [merged, issues, reviews]);
+  // Repo rows under an org row add up to its merged count.
+  for (const [, org, repos] of html.matchAll(/<tr data-prs="(\d+)">.*?<\/tr>((?:\s*<tr class="repo" data-prs="\d+">.*?<\/tr>)*)/g)) {
+    const counts = [...repos.matchAll(/data-prs="(\d+)">.*?class="num"><span class="t m">(\d+)</g)];
+    counts.forEach(([, a, b]) => assert.strictEqual(a, b));
+    if (counts.length) assert.strictEqual(counts.reduce((a, [, n]) => a + +n, 0), +org);
+  }
   console.log('ok');
 })().catch(err => { console.error(err); process.exit(1); });
