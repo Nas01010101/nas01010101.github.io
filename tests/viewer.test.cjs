@@ -2,7 +2,7 @@
 const test = require('node:test'), assert = require('node:assert');
 const fs = require('node:fs'), path = require('node:path');
 const { MAP_RATIO, ZOOM_MIN, BANDS, BANDS_DIM, placeMarks, mapPlace, mapCell, mapPoint, mapOn, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, TEMP_EDGES, TEMP_BANDS, TEMP_TONES, TEMP_TONES_DIM, tempBand, terrainBand, contours, pressureMarks, sourceWords } = require('../mapmath.js');
-const { dayFacts, placeWords, scoreFacts, modelWords, fleetFacts } = require('../earthinfo.js');
+const { dayFacts, placeWords, scoreFacts, modelWords, fleetFacts, LEADS, leadLabel, leadWords, dotWords } = require('../earthinfo.js');
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`);
 const DEG = Math.PI / 180;
@@ -351,4 +351,26 @@ test('scores come from the days the networks forecast, as root mean squares', ()
   // Pressure has no score here, and under a week of days is too few: both keep the sealed test numbers.
   assert.ok(modelWords('network', ['cloud', 'temp', 'pressure'], true, true, true, scores).lines.some(line => line.startsWith('typical miss on 28 test days')));
   assert.ok(modelWords('network', ['cloud'], false, false, true, scoreFacts([day(true, 400, 625)])).lines.some(line => line.endsWith('cloud 19\u00a0points')));
+});
+
+test('the satellite forecast names its lead and the moment it draws', () => {
+  assert.deepStrictEqual(LEADS, [0, 1, 6, 24]);
+  assert.strictEqual(leadLabel(0), 'now');
+  assert.strictEqual(leadLabel(6), '+6\u00a0h');
+  const at = Date.parse('2026-11-12T18:12Z');
+  assert.strictEqual(leadWords(0, at), 'now');
+  assert.strictEqual(leadWords(6, at), 'in 6\u00a0h, 00:12\u00a0UTC');
+  assert.strictEqual(leadWords(24, at), 'in 24\u00a0h, 18:12\u00a0UTC');
+  assert.match(dotWords(0), /at this second/);
+  assert.match(dotWords(24), /in 24\u00a0h, its published orbit run forward/);
+});
+
+test('the pages start their data downloads from the head', () => {
+  const fs = require('node:fs'), path = require('node:path'), data = 'https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/';
+  for (const page of ['earth.html', 'index.html']) {
+    const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
+    for (const file of ['forecast.json', 'planet.bin', 'sats.bin']) assert.ok(html.includes(`<link rel="preload" as="fetch" crossorigin href="${data}${file}">`), `${page} ${file}`);
+  }
+  // The preloads are only reused when the scripts ask for the same address.
+  assert.ok(fs.readFileSync(path.join(__dirname, '..', 'planet.js'), 'utf8').includes(`const FORECAST = '${data}'`));
 });

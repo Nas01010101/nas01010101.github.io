@@ -233,13 +233,33 @@ function buildLegend() {
   const step = document.createElement('span');
   step.id = 'legend-step';
   item(swatch(layer === 'temp' ? TEMP_BANDS[3] : BANDS[1], 'sw line'), step, ', H high, L low').id = 'legend-pressure';
-  for (const { name, ink } of MARKS) {
-    const plus = document.createElement('span');
-    plus.style.color = INKS[ink];
-    plus.textContent = '+ ';
-    item(plus, name);
-  }
   item(swatch(layer === 'temp' ? TEMP_TONES_DIM[7] : BANDS_DIM[1]), swatch(layer === 'temp' ? TEMP_TONES[7] : BANDS[1]), 'bright: what the globe shows');
+}
+
+// The globe's own key, above the map: what the dots, colours and marks on the planet are.
+function globeKey() {
+  const list = $('globe-legend'), inked = (text, color) => { const span = document.createElement('span'); span.style.color = color; span.textContent = text; return span; };
+  const swatch = color => { const box = document.createElement('i'); box.className = 'sw'; box.style.background = color; return box; };
+  const item = (...parts) => { const li = document.createElement('li'); li.append(...parts); list.append(li); };
+  list.replaceChildren();
+  if (showDots && orb) item(inked('\u00b7 ', '#fff'), `satellite ${lead ? `in ${lead}\u00a0h` : 'now'}`);
+  item(swatch(INKS[LAND + 2]), swatch(INKS[OCEAN + 2]), 'land, sea');
+  item(swatch(INKS[CLOUD_LAND + 2]), swatch(INKS[CLOUD_SEA + 2]), 'paler: cloud');
+  // Only Open-Meteo's frames carry rain.
+  if (field.kind === 'meteo') item(inked('| ', INKS[OCEAN + 3]), 'rain');
+  for (const { name, ink } of MARKS) item(inked('+ ', INKS[ink]), name);
+  item('dark side: night');
+}
+
+// What the satellite lines say follows the forecast's lead time.
+function fleetNote() {
+  if (!orb) return;
+  const count = `${orb.n.toLocaleString('en-US')} objects ${lead ? leadWords(lead, clock()) : 'now'}, CelesTrak`;
+  if ($('count').textContent === count) return;
+  $('count').textContent = count;
+  $('fleet-each').textContent = dotWords(lead);
+  $('fleet-miss').hidden = !lead;
+  globeKey();
 }
 
 function refreshField() {
@@ -262,6 +282,7 @@ function refreshField() {
   }
   cloudsOwn = false;
   applyLayer();
+  globeKey();
   fillGlyphs();
   mapReadout();
   mapSource();
@@ -338,8 +359,9 @@ function mapTouch() { mapEl.style.touchAction = document.documentElement.scrollH
 const dots = download(`${FORECAST}sats.bin`).catch(() => download('sats.bin')).then(buffer => {
   orb = loadOrbits(buffer);
   pos = new Float32Array(orb.n * 3);
-  orbitsAt(orb, clock(), pos);
-  $('count').textContent = `${orb.n.toLocaleString('en-US')} objects, CelesTrak`;
+  orbitsAt(orb, shownAt(), pos);
+  $('lead').hidden = !showDots;
+  fleetNote();
   const fleet = fleetFacts(orb, RE);
   $('fleet-count').textContent = `${fleet.n.toLocaleString('en-US')} active satellites, from CelesTrak`;
   $('fleet-where').textContent = `${Math.round(fleet.lowShare * 100)}% in low orbit, one lap about ${Math.round(fleet.lapMin)}\u00a0minutes`;
@@ -358,4 +380,4 @@ new ResizeObserver(() => { fit(); fitMap(); mapTouch(); }).observe(document.docu
 new ResizeObserver(fit).observe(stage);
 new ResizeObserver(fitMap).observe(mapEl);
 addEventListener('resize', fit);
-applyLayer(); fit(); fitMap(); mapReadout(); mapSource(); mapTouch(); requestAnimationFrame(loop);
+applyLayer(); globeKey(); fit(); fitMap(); mapReadout(); mapSource(); mapTouch(); requestAnimationFrame(loop);

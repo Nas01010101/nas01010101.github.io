@@ -18,7 +18,7 @@ function pack(rows) {
   rows.forEach((r, i) => f.set([(ms(r) - base) / 1000, r.MEAN_MOTION, r.ECCENTRICITY, r.INCLINATION, r.RA_OF_ASC_NODE, r.ARG_OF_PERICENTER, r.MEAN_ANOMALY, r.MEAN_MOTION_DOT], i * 8));
   return buf;
 }
-function errors(rows) {
+function errors(rows, AT = Date.parse('2026-11-04T17:00Z')) {
   const o = loadOrbits(pack(rows)), out = new Float32Array(o.n * 3);
   orbitsAt(o, AT, out);
   const low = [], high = [];
@@ -41,6 +41,16 @@ test('stays within a drawn cell of SGP4', () => {
   assert.ok(e.low.p50 < 196, `low orbit median ${e.low.p50} km`);
   assert.ok(e.low.p95 < 196, `low orbit p95 ${e.low.p95} km`);
   assert.ok(e.high.p95 < 196, `high orbit p95 ${e.high.p95} km`);
+});
+
+// The page forecasts up to a day ahead from elements up to a day old, and tells the visitor 20 km.
+test('a forecast two days past the elements stays within 20 km of SGP4 for 95%', () => {
+  const rows = parse(fs.readFileSync(path.join(__dirname, 'active-sample.csv'), 'utf8')), base = Math.max(...rows.map(r => Date.parse(r.EPOCH + 'Z')));
+  for (const hours of [1, 6, 24, 48]) {
+    const e = errors(rows, base + hours * 36e5), all = Math.max(e.low.p95, e.high.p50);
+    assert.ok(e.low.p95 < 20, `+${hours} h low orbit p95 ${e.low.p95} km`);
+    assert.ok(all < 30, `+${hours} h high orbit median ${e.high.p50} km`);
+  }
 });
 
 test('reads the packed layout', () => {

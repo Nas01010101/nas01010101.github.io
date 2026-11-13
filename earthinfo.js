@@ -90,4 +90,13 @@ function fleetFacts(orb, earthKm) {
   return { n: orb.n, lowShare: low / orb.n, lapMin: laps[orb.n >> 1] };
 }
 
-if (typeof module !== 'undefined') module.exports = { dayFacts, placeWords, scoreFacts, modelWords, fleetFacts };
+// Hours ahead the satellite forecast offers; 0 is the present.
+const LEADS = [0, 1, 6, 24];
+const leadLabel = hours => (hours ? `+${hours}\u00a0h` : 'now');
+// When the dots are drawn for, as words: "now", or "in 6 h, 00:12 UTC".
+const leadWords = (hours, ms) => (hours ? `in ${hours}\u00a0h, ${new Date(ms + hours * 36e5).toISOString().slice(11, 16)}\u00a0UTC` : 'now');
+const dotWords = hours => (hours
+  ? `each dot: one object in ${hours}\u00a0h, its published orbit run forward, no neural network`
+  : 'each dot: one object at this second, from its published orbit, no neural network');
+
+if (typeof module !== 'undefined') module.exports = { dayFacts, placeWords, scoreFacts, modelWords, fleetFacts, LEADS, leadLabel, leadWords, dotWords };

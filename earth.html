@@ -6,6 +6,10 @@
 <meta name="color-scheme" content="dark">
 <title>Pale blue dot</title>
 <meta name="description" content="The Earth at true scale with every tracked object at its true height and a cloud, temperature and pressure forecast printed as a map.">
+<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+<link rel="preload" as="fetch" crossorigin href="https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/forecast.json">
+<link rel="preload" as="fetch" crossorigin href="https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/planet.bin">
+<link rel="preload" as="fetch" crossorigin href="https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/sats.bin">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--net:#36d07f;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace;--ratio:2.0546;--col:min(100% - 32px,1120px,var(--ratio) * 78vh)}
@@ -32,7 +36,7 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 
 #top,#forecast{width:var(--col);margin-inline:auto}
 #top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding-block:12px 4px}
-#sats{margin-left:auto}
+#top h1{margin-right:auto}
 
 /* Tall enough to hold the planet, short enough on a phone to leave the map on the first screen. */
 #stage{position:relative;overflow:hidden;touch-action:none;cursor:grab;outline:0;height:clamp(320px,66vh,100vw + 120px)}
@@ -55,9 +59,11 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 #map canvas{position:absolute;inset:0;width:100%;height:100%}
 #map-lines{pointer-events:none}
 #map-read{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 16px;margin-top:8px}
-#legend{display:flex;flex-wrap:wrap;gap:4px 24px;margin:8px 0 0;padding:0;list-style:none}
+#legend,#globe-legend{display:flex;flex-wrap:wrap;gap:4px 24px;margin:8px 0 0;padding:0;list-style:none}
+/* The globe's key belongs to the planet above it, so the gap falls under it. */
+#globe-legend{margin:0 0 12px}
 /* Items keep one line where they fit; the long pressure item wraps on a narrow phone instead of widening the page. */
-#legend li{min-width:0}
+#legend li,#globe-legend li{min-width:0}
 .sw{display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px}
 .sw+.sw{margin-left:-8px}
 .sw.line{position:relative}
@@ -89,6 +95,7 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 <header id="top">
   <a href="./">home</a>
   <h1>pale blue dot</h1>
+  <button id="lead" type="button" hidden aria-label="Satellite positions: now. Press to forecast them ahead.">now</button>
   <button id="sats" type="button">weather only</button>
 </header>
 <div id="stage" tabindex="0" role="application" aria-label="The Earth. Drag or use the arrow keys to turn, scroll or use plus and minus to zoom.">
@@ -98,6 +105,7 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
   <p id="scale" hidden><span class="t m" id="scale-text"></span><span id="bar"></span></p>
 </div>
 <section id="forecast" aria-label="Forecast">
+  <ul id="globe-legend" class="m" aria-label="Globe legend"></ul>
   <div id="map" role="img" aria-label="Forecast map, loading">
     <canvas id="map-glyphs" aria-hidden="true"></canvas>
     <canvas id="map-lines" aria-hidden="true"></canvas>
@@ -123,7 +131,8 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
         <p id="fleet-count">loading satellites</p>
         <div id="fleet-more" hidden>
           <p id="fleet-where"></p>
-          <p>each dot: one object at this second, from its published orbit, no neural network</p>
+          <p id="fleet-each"></p>
+          <p id="fleet-miss" hidden>a day ahead, 95% land within 20 km of the full SGP4 model</p>
         </div>
       </div>
       <p class="more"><a href="flow.html#satellites">satellite model</a></p>

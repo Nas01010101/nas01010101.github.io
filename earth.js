@@ -9,9 +9,11 @@ const opened = now();
 
 let W = 0, H = 0, dpr = 0, cols, rows, cwD, chD, cw, ch, atlas, g, c, pg, pc, stars = [];
 let orb = null, pos = null, slice = 0, meta = null;
-let dirty = true, last = 0, cost = 0, sunAt = 0, showDots = true;
+let dirty = true, last = 0, cost = 0, sunAt = 0, showDots = true, lead = 0;
 
 const clock = () => (still ? opened : now());
+// The dots and the sunlight share one moment, so a forecast shows what each object is over then. Weather stays on the present.
+const shownAt = () => clock() + (showDots ? lead * 36e5 : 0);
 const radius = () => Math.min(W, H) * .44 * view.zoom;
 const scale = () => Math.min(devicePixelRatio || 1, 2);
 const gmst = ms => (280.46061837 + 360.98564736629 * (ms / 864e5 + 2440587.5 - 2451545)) * RAD;
@@ -128,24 +130,26 @@ function drawScale() {
 }
 
 function tick() {
-  const T = clock(), before = cover;
+  const T = clock(), S = shownAt(), before = cover;
   refreshField();
   applyClouds(T);
   if (cover !== before) dirty = true;
   stepAim();
   if (orb && showDots && !still) {
-    orbitsAt(orb, T, pos, Math.floor(slice * orb.n / SLICES), Math.floor((slice + 1) * orb.n / SLICES));
+    orbitsAt(orb, S, pos, Math.floor(slice * orb.n / SLICES), Math.floor((slice + 1) * orb.n / SLICES));
     slice = (slice + 1) % SLICES;
   }
   const nowMs = performance.now();
-  if (dirty || (!still && nowMs - sunAt > SUN_MS)) { drawPlanet(T); drawScale(); sunAt = nowMs; }
-  if (showDots && (dirty || !still)) drawDots(T);
+  if (dirty || (!still && nowMs - sunAt > SUN_MS)) { drawPlanet(S); drawScale(); sunAt = nowMs; }
+  if (showDots && (dirty || !still)) drawDots(S);
+  if (lead) fleetNote();
   drawMap();
   dirty = false;
 }
 
 function loop(t) {
-  if (t - last > Math.max(66, cost * 3)) {
+  // 15 fps while only the sky moves; a drag, zoom or tap draws on the next frame the device can afford.
+  if (t - last > Math.max(dirty ? 0 : 66, cost * 3)) {
     const a = performance.now();
     last = t;
     tick();
@@ -157,9 +161,18 @@ function loop(t) {
 $('sats').addEventListener('click', e => {
   showDots = !showDots;
   e.currentTarget.textContent = showDots ? 'weather only' : 'show satellites';
-  orbitCv.hidden = $('count').hidden = !showDots;
+  orbitCv.hidden = $('count').hidden = $('lead').hidden = !showDots;
   // Their positions stood still while hidden.
-  if (showDots && orb) orbitsAt(orb, clock(), pos);
+  if (showDots && orb) orbitsAt(orb, shownAt(), pos);
+  globeKey();
+  dirty = true;
+});
+$('lead').addEventListener('click', e => {
+  lead = LEADS[(LEADS.indexOf(lead) + 1) % LEADS.length];
+  e.currentTarget.textContent = leadLabel(lead);
+  e.currentTarget.setAttribute('aria-label', `Satellite positions: ${leadWords(lead, clock())}. Press to change how far ahead.`);
+  if (orb) orbitsAt(orb, shownAt(), pos);
+  fleetNote();
   dirty = true;
 });
 
