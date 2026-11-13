@@ -37,6 +37,9 @@ function forecastFor(today) {
   });
 }
 
+// "nov 12" from 2026-11-12: the forecast's own day, named once the UTC date has moved past it.
+const dayWords = iso => `${['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
+
 // The lines under the planet. today is the published forecast for a recent date, or null.
 function cityLines(ms, today, subsolar) {
   const values = today ? forecastFor(today) : CITIES.map(() => null), any = values.some(Boolean);
@@ -52,7 +55,7 @@ function cityLines(ms, today, subsolar) {
     rows,
     detail: detail.length ? `${CITIES[0].name}: ${detail.join(', ')}` : '',
     // A cell is 7.5 degrees on a side, so a coastal city's value mixes in the sea.
-    source: any ? 'our model, today\'s mean, 800\u00a0km cell' : '',
+    source: any ? `our model, ${today.date === new Date(ms).toISOString().slice(0, 10) ? "today's" : dayWords(today.date)} mean, 800\u00a0km cell` : '',
   };
 }
 

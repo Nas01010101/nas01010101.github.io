@@ -1,8 +1,8 @@
 // The viewer's pure parts: map geometry, the choice of weather field, the height bands and the isobars.
 const test = require('node:test'), assert = require('node:assert');
 const fs = require('node:fs'), path = require('node:path');
-const { MAP_RATIO, ZOOM_MIN, BANDS, BANDS_DIM, placeMarks, mapPlace, mapCell, mapPoint, mapOn, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, terrainBand, contours, pressureMarks, sourceWords } = require('../mapmath.js');
-const { dayFacts, placeWords, modelWords, fleetFacts } = require('../earthinfo.js');
+const { MAP_RATIO, ZOOM_MIN, BANDS, BANDS_DIM, placeMarks, mapPlace, mapCell, mapPoint, mapOn, mapAt, gridIndex, fieldAt, seenFrom, chooseField, wrapYaw, percentGlyph, TEMP_EDGES, TEMP_BANDS, TEMP_TONES, TEMP_TONES_DIM, tempBand, terrainBand, contours, pressureMarks, sourceWords } = require('../mapmath.js');
+const { dayFacts, placeWords, scoreFacts, modelWords, fleetFacts } = require('../earthinfo.js');
 
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`);
 const DEG = Math.PI / 180;
@@ -314,4 +314,41 @@ test('the fleet\'s facts come from its orbits', () => {
   close(facts.lowShare, 2 / 3);
   close(facts.lapMin, 2 * Math.PI / .00105 / 60, .01);
   assert.equal(fleetFacts({ n: 0, a: [], mDot: [] }, 6378.135).lapMin, 0);
+});
+
+test('a temperature falls in one of seven bands, cold to hot', () => {
+  assert.equal(TEMP_BANDS.length, TEMP_EDGES.length + 1);
+  assert.deepEqual([-41, -20, -10.1, -0.1, 0, 9.9, 19, 29.9, 30, 45].map(tempBand), [0, 1, 1, 2, 3, 3, 4, 5, 6, 6]);
+  assert.equal(new Set(TEMP_TONES).size, 14, 'sea and land tones must differ in every band');
+});
+
+test('cloud glyphs and isobars stay readable on the temperature layer', () => {
+  const luminance = hex => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4));
+    return .2126 * r + .7152 * g + .0722 * b;
+  };
+  TEMP_TONES.forEach((hex, i) => {
+    const l = luminance(hex), dim = luminance(TEMP_TONES_DIM[i]);
+    assert.ok(1.05 / (l + .05) >= 3, `${hex} against white`);
+    // Land tones carry the black isobars at full contrast; the darker sea keeps them visible.
+    assert.ok((l + .05) / .05 >= (i % 2 ? 3 : 2), `${hex} against black`);
+    assert.ok((luminance('#969696') + .05) / (dim + .05) >= 3, `dim cloud on ${TEMP_TONES_DIM[i]}`);
+    assert.ok((l + .05) / (dim + .05) >= 1.8, `${hex} must stand out from ${TEMP_TONES_DIM[i]}`);
+  });
+});
+
+test('scores come from the days the networks forecast, as root mean squares', () => {
+  const day = (net, model, repeat) => ({ net, cloud: { model, repeat }, temp: { model: 1, repeat: 4 }, pressure: net ? { model: 9, repeat: null } : { model: 9, repeat: 25 } });
+  const scores = scoreFacts([day(false, 900, 900), ...Array.from({ length: 7 }, () => day(true, 400, 625))]);
+  assert.equal(scores.days, 7);
+  assert.deepEqual(scores.cloud, { model: 20, repeat: 25 });
+  assert.deepEqual(scores.temp, { model: 1, repeat: 2 });
+  assert.equal(scores.pressure, null, 'a day with no repeat score is left out');
+  assert.equal(scoreFacts(undefined).days, 0);
+  const live = modelWords('network', ['cloud', 'temp'], true, false, true, scores);
+  assert.ok(live.lines.includes('typical miss, last 7 days: cloud 20\u00a0points, temperature 1.0°C'));
+  assert.ok(live.lines.includes('repeating the day before misses by 25\u00a0points, 2.0°C'));
+  // Pressure has no score here, and under a week of days is too few: both keep the sealed test numbers.
+  assert.ok(modelWords('network', ['cloud', 'temp', 'pressure'], true, true, true, scores).lines.some(line => line.startsWith('typical miss on 28 test days')));
+  assert.ok(modelWords('network', ['cloud'], false, false, true, scoreFacts([day(true, 400, 625)])).lines.some(line => line.endsWith('cloud 19\u00a0points')));
 });

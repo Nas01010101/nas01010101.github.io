@@ -37,15 +37,27 @@ function placeWords(lat, lon) {
   return `${part(lat, 'N', 'S')} ${part(lon, 'E', 'W')}`;
 }
 
-// Typical miss is the root mean square on the 28 sealed days 2026-10-07 to 2026-11-03, written out in the forecast repo.
+// Typical miss is the root mean square on the 28 sealed days 2026-10-07 to 2026-11-03, written out in the forecast repo. Shown until a week of issued forecasts has been scored.
 const MODEL_FIELDS = {
-  cloud: { word: 'cloud', miss: 'cloud 19\u00a0points' },
-  temp: { word: 'temperature', miss: 'temperature 0.9°C' },
-  pressure: { word: 'pressure', miss: 'pressure 2.6\u00a0hPa' },
+  cloud: { word: 'cloud', miss: 'cloud 19\u00a0points', show: v => `${Math.round(v)}\u00a0points` },
+  temp: { word: 'temperature', miss: 'temperature 0.9°C', show: v => `${v.toFixed(1)}°C` },
+  pressure: { word: 'pressure', miss: 'pressure 2.6\u00a0hPa', show: v => `${v.toFixed(1)}\u00a0hPa` },
 };
+const SCORED_DAYS = 7;
 
-// Who made the map on screen: { net, from, lines }. `net` is shown green, `from` is the plain source.
-function modelWords(kind, nets, hasTemp, hasPressure, settled) {
+// Root mean square miss over the days the networks forecast, beside the miss of repeating the day before. The file keeps mean squares.
+function scoreFacts(losses) {
+  const rows = (Array.isArray(losses) ? losses : []).filter(r => r && r.net), out = { days: rows.length };
+  for (const name of Object.keys(MODEL_FIELDS)) {
+    const kept = rows.map(r => r[name]).filter(v => v && Number.isFinite(v.model) && Number.isFinite(v.repeat));
+    const rms = key => Math.sqrt(kept.reduce((sum, v) => sum + v[key], 0) / kept.length);
+    out[name] = kept.length ? { model: rms('model'), repeat: rms('repeat') } : null;
+  }
+  return out;
+}
+
+// Who made the map on screen: { net, from, lines }. `net` is shown green, `from` is the plain source. `scores` is scoreFacts of the published losses, if any.
+function modelWords(kind, nets, hasTemp, hasPressure, settled, scores) {
   if (kind === 'network') {
     const made = ['cloud', 'temp', 'pressure'].filter(name => nets.includes(name) && (name !== 'temp' || hasTemp) && (name !== 'pressure' || hasPressure));
     const words = made.map(name => MODEL_FIELDS[name].word), many = made.length > 1;
@@ -55,7 +67,10 @@ function modelWords(kind, nets, hasTemp, hasPressure, settled) {
       `${many ? 'read' : 'reads'} the past 30 days, forecast${many ? '' : 's'} today's ${list}`,
     ];
     if (hasTemp && !nets.includes('temp')) lines.push('temperature: ridge regression, a straight-line fit');
-    lines.push(`typical miss on 28 test days: ${made.map(name => MODEL_FIELDS[name].miss).join(', ')}`);
+    if (scores && scores.days >= SCORED_DAYS && made.every(name => scores[name])) {
+      lines.push(`typical miss, last ${scores.days} days: ${made.map(name => `${MODEL_FIELDS[name].word} ${MODEL_FIELDS[name].show(scores[name].model)}`).join(', ')}`);
+      lines.push(`repeating the day before misses by ${made.map(name => MODEL_FIELDS[name].show(scores[name].repeat)).join(', ')}`);
+    } else lines.push(`typical miss on 28 test days: ${made.map(name => MODEL_FIELDS[name].miss).join(', ')}`);
     return { net: many ? 'our neural networks' : 'our neural network', from: '', lines };
   }
   if (kind === 'meteo') return { net: '', from: "Open-Meteo's forecast, not ours", lines: ['our network has no forecast for this date yet'] };
@@ -75,4 +90,4 @@ function fleetFacts(orb, earthKm) {
   return { n: orb.n, lowShare: low / orb.n, lapMin: laps[orb.n >> 1] };
 }
 
-if (typeof module !== 'undefined') module.exports = { dayFacts, placeWords, modelWords, fleetFacts };
+if (typeof module !== 'undefined') module.exports = { dayFacts, placeWords, scoreFacts, modelWords, fleetFacts };

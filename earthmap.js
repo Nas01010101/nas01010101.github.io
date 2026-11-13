@@ -8,7 +8,9 @@ const MAP_OFF = 255;
 const isobarStep = () => (mapW < 500 ? 16 : 8);
 
 let mapW = 0, mapH = 0, mapDpr = 0, mCols = 0, mRows = 0, mCw = 0, mCh = 0, mAtlas = null, mapKey = '';
-let mLat, mLon, mBand, mGlyph, mLit, mShown;
+let mLat, mLon, mBand, mLand, mGlyph, mLit, mShown;
+// What colours the map: the day's temperature when the field has one and the visitor has not asked for terrain.
+let wantTemp = true, layer = 'terrain';
 let field = { kind: 'none', key: 'none', date: null, grid: null, temp: null, pressure: null, nets: [], rows: GRID_ROWS, cols: GRID_COLS };
 let settled = false, tapped = null, hovered = null, aim = null, mapPress = null, cloudsOwn = false, linesKey = '';
 
@@ -27,6 +29,27 @@ function fillGlyphs() {
   mapKey = '';
 }
 
+// Each cell's colour index: sea and four heights for terrain, or seven temperature bands in a sea and a land tone.
+function fillBands() {
+  if (!mCols) return;
+  for (let i = 0; i < mBand.length; i++) {
+    if (mBand[i] === MAP_OFF) continue;
+    mBand[i] = layer === 'temp' ? tempBand(fieldAt(field.temp, mLat[i], mLon[i], field.rows, field.cols)) * 2 + mLand[i] : mLand[i] ? 1 + terrainBand(mLat[i], mLon[i]) : 0;
+  }
+  mShown.fill(-1);
+  mapKey = '';
+}
+
+// Picks the layer the field allows, then repaints the map's colours and its legend.
+function applyLayer() {
+  layer = wantTemp && field.temp ? 'temp' : 'terrain';
+  const button = $('layer');
+  button.hidden = !field.temp;
+  button.textContent = layer === 'temp' ? 'show terrain' : 'show temperature';
+  fillBands();
+  buildLegend();
+}
+
 function fitMap() {
   const w = mapEl.clientWidth, h = mapEl.clientHeight, ratio = scale();
   if (!w || !h || (w === mapW && h === mapH && ratio === mapDpr)) return;
@@ -38,15 +61,16 @@ function fitMap() {
   mCols = Math.floor(mapCv.width / mCw); mRows = Math.floor(mapCv.height / mCh);
   mAtlas = makeAtlas(font, mCw, mCh);
   const n = mCols * mRows;
-  mLat = new Float32Array(n); mLon = new Float32Array(n); mBand = new Uint8Array(n); mGlyph = new Int8Array(n); mLit = new Uint8Array(n); mShown = new Int32Array(n).fill(-1);
+  mLat = new Float32Array(n); mLon = new Float32Array(n); mBand = new Uint8Array(n); mLand = new Uint8Array(n); mGlyph = new Int8Array(n); mLit = new Uint8Array(n); mShown = new Int32Array(n).fill(-1);
   for (let row = 0, i = 0; row < mRows; row++) {
     for (let col = 0; col < mCols; col++, i++) {
       const place = mapPlace(col, row, mCols, mRows);
       if (!place) { mBand[i] = MAP_OFF; continue; }
       const { lat, lon } = place;
-      mLat[i] = lat; mLon[i] = lon; mBand[i] = isLand(lat, lon) ? 1 + terrainBand(lat, lon) : 0;
+      mLat[i] = lat; mLon[i] = lon; mLand[i] = isLand(lat, lon) ? 1 : 0;
     }
   }
+  fillBands();
   fillGlyphs();
   mapSource();
   dirty = true;
@@ -54,7 +78,7 @@ function fitMap() {
 
 function drawMap() {
   if (!mCols) return;
-  const key = `${view.yaw.toFixed(3)},${view.pitch.toFixed(3)},${view.zoom.toFixed(3)},${W},${H},${field.key},${tapped ? `${tapped.lat},${tapped.lon}` : ''},${mCols}`;
+  const key = `${view.yaw.toFixed(3)},${view.pitch.toFixed(3)},${view.zoom.toFixed(3)},${W},${H},${field.key},${layer},${tapped ? `${tapped.lat},${tapped.lon}` : ''},${mCols}`;
   if (key === mapKey) return;
   mapKey = key;
   const R = radius();
@@ -78,7 +102,7 @@ function drawMap() {
     if (state === mShown[i]) continue;
     mShown[i] = state;
     const col = i % mCols, row = (i - col) / mCols, px = Math.round(col * mapCv.width / mCols), py = Math.round(row * mapCv.height / mRows);
-    mapCtx.fillStyle = mark ? '#000' : (mLit[i] ? BANDS : BANDS_DIM)[mBand[i]];
+    mapCtx.fillStyle = mark ? '#000' : (layer === 'temp' ? (mLit[i] ? TEMP_TONES : TEMP_TONES_DIM) : (mLit[i] ? BANDS : BANDS_DIM))[mBand[i]];
     mapCtx.fillRect(px, py, Math.round((col + 1) * mapCv.width / mCols) - px, Math.round((row + 1) * mapCv.height / mRows) - py);
     if (glyph >= 0) mapCtx.drawImage(mAtlas, glyph * mCw, ink * mCh, mCw, mCh, px, py, mCw, mCh);
   }
@@ -141,7 +165,7 @@ function mapReadout() {
 }
 
 function mapSource() {
-  const words = modelWords(field.kind, field.nets, !!field.temp, !!field.pressure, settled), net = $('map-net');
+  const words = modelWords(field.kind, field.nets, !!field.temp, !!field.pressure, settled, meta && meta.weather ? scoreFacts(meta.weather.losses) : null), net = $('map-net');
   net.hidden = !words.net;
   net.textContent = words.net;
   $('map-from').textContent = words.from;
@@ -196,22 +220,26 @@ function renderToday() {
 function buildLegend() {
   const list = $('legend'), swatch = (color, cls = 'sw') => { const box = document.createElement('i'); box.className = cls; box.style.background = color; return box; };
   const item = (...parts) => { const li = document.createElement('li'); li.append(...parts); list.append(li); return li; };
-  ['sea', 'under 300 m', 'to 1,000 m', 'to 2,500 m', 'higher'].forEach((name, i) => item(swatch(BANDS[i]), name));
+  list.replaceChildren();
+  if (layer === 'temp') {
+    ['under', ...TEMP_EDGES.slice(1).map(() => 'to'), 'over'].forEach((word, i) => item(swatch(TEMP_BANDS[i]), `${word} ${TEMP_EDGES[Math.min(i, TEMP_EDGES.length - 1)]}${i ? '' : '°C'}`.replace('-', '\u2212')));
+    item(swatch(TEMP_TONES[6]), swatch(TEMP_TONES[7]), 'darker: sea');
+  } else ['sea', 'under 300 m', 'to 1,000 m', 'to 2,500 m', 'higher'].forEach((name, i) => item(swatch(BANDS[i]), name));
   const ramp = document.createElement('span');
   ramp.className = 'ramp';
-  ramp.style.background = BANDS[0];
+  ramp.style.background = layer === 'temp' ? TEMP_TONES[6] : BANDS[0];
   ramp.textContent = RAMP;
   item('cloud 0 ', ramp, ' 100%');
   const step = document.createElement('span');
   step.id = 'legend-step';
-  item(swatch(BANDS[1], 'sw line'), step, ', H high, L low').id = 'legend-pressure';
+  item(swatch(layer === 'temp' ? TEMP_BANDS[3] : BANDS[1], 'sw line'), step, ', H high, L low').id = 'legend-pressure';
   for (const { name, ink } of MARKS) {
     const plus = document.createElement('span');
     plus.style.color = INKS[ink];
     plus.textContent = '+ ';
     item(plus, name);
   }
-  item(swatch(BANDS_DIM[1]), swatch(BANDS[1]), 'bright: what the globe shows');
+  item(swatch(layer === 'temp' ? TEMP_TONES_DIM[7] : BANDS_DIM[1]), swatch(layer === 'temp' ? TEMP_TONES[7] : BANDS[1]), 'bright: what the globe shows');
 }
 
 function refreshField() {
@@ -233,6 +261,7 @@ function refreshField() {
     field.at = weather.start + frame * weather.step;
   }
   cloudsOwn = false;
+  applyLayer();
   fillGlyphs();
   mapReadout();
   mapSource();
@@ -301,6 +330,8 @@ mapEl.addEventListener('pointerup', e => {
 mapEl.addEventListener('pointercancel', () => { mapPress = null; hovered = null; mapReadout(); });
 mapEl.addEventListener('pointerleave', () => { if (!mapPress) { hovered = null; mapReadout(); } });
 
+$('layer').addEventListener('click', () => { wantTemp = !wantTemp; applyLayer(); mapSource(); dirty = true; });
+
 // Where the page scrolls, a vertical swipe on the map has to scroll it instead of turning the globe.
 function mapTouch() { mapEl.style.touchAction = document.documentElement.scrollHeight > innerHeight ? 'pan-y' : 'none'; }
 
@@ -327,4 +358,4 @@ new ResizeObserver(() => { fit(); fitMap(); mapTouch(); }).observe(document.docu
 new ResizeObserver(fit).observe(stage);
 new ResizeObserver(fitMap).observe(mapEl);
 addEventListener('resize', fit);
-buildLegend(); fit(); fitMap(); mapReadout(); mapSource(); mapTouch(); requestAnimationFrame(loop);
+applyLayer(); fit(); fitMap(); mapReadout(); mapSource(); mapTouch(); requestAnimationFrame(loop);
