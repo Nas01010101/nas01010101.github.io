@@ -12,6 +12,7 @@ Personal site. Static HTML, no build step, no dependencies.
 - `orbits.js`: propagates the satellites in `sats.bin`.
 - `scripts/update_sats.py`: rebuilds `sats.bin` from CelesTrak.
 - `scripts/land_mask.py`: rewrites the land mask in `planet.js` from Natural Earth.
+- `scripts/update_prs.cjs`: recounts merged pull requests on the home page; `.github/workflows/update-prs.yml` runs it daily.
 
 Clouds, rain, scores, element files and corrections come from [ascii-earth-forecast](https://github.com/Nas01010101/ascii-earth-forecast), read from its `data` branch. `sats.bin` here is the fallback when that branch is unavailable.
 

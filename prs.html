@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Pull requests</title>
+<meta name="description" content="Five merged pull requests by Anas Elghoudane at Google DeepMind and NVIDIA, each with its context, code diff and what changed.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--surface:#111;--add:#8fd18f;--del:#e08b8b;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+*{box-sizing:border-box}
+html{background:var(--bg);color:var(--fg);font:clamp(10px,calc((100vw - 32px) / 24),14px)/1.714 var(--mono);-webkit-text-size-adjust:100%}
+body{margin:0}
+main{padding:32px 16px;width:min(100%,84ch);margin:0 auto}
+h1,h2,h3{font:inherit;margin:0}
+h1{margin:1.714rem 0}
+h3{margin-top:1.714rem;color:var(--muted)}
+p{margin:0}
+section{margin-bottom:5.142rem}
+.m{color:var(--muted)}
+/* Diffs keep their line breaks and scroll sideways inside the block, never the page. */
+pre{margin:1.714rem 0;padding:8px 12px;background:var(--surface);overflow-x:auto;font:inherit;font-size:.857em;line-height:1.5}
+pre span{display:block;white-space:pre}
+.add{color:var(--add)}.del{color:var(--del)}.hunk,.file{color:var(--muted)}.file{margin-top:8px}.file:first-child{margin-top:0}
+a{color:var(--fg);text-decoration:none;white-space:nowrap}
+a::before{content:"["}a::after{content:"]"}
+a.title{white-space:normal}
+@media (hover:hover){a:hover{background:var(--fg);color:var(--bg)}}
+a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
+::selection{background:var(--fg);color:var(--bg)}
+</style>
+</head>
+<body>
+<main>
+  <p><a href="./">back to the planet</a></p>
+  <h1>pull requests</h1>
+  <section id="mujoco-warp">
+    <h2><a class="title" href="https://github.com/google-deepmind/mujoco_warp/pull/1844">Use xipos for subtree_com of massless subtrees</a></h2>
+    <p class="m">Google DeepMind, mujoco_warp #1844</p>
+    <h3>context</h3>
+    <p>MuJoCo Warp is the GPU version of the MuJoCo physics engine. For each body it computes the centre of mass of that body and everything attached below it, by summing mass times position and dividing by the total mass. A body with no mass, such as one that only holds a sensor, gave a total mass of zero, so the division was skipped and its centre of mass stayed at the origin of the world.</p>
+    <h3>change</h3>
+    <p>When the mass is below MuJoCo&#x27;s small-number threshold, the kernel now uses the body&#x27;s own position (xipos) instead, as the CPU MuJoCo does. The call site passes xipos in. The added test builds a hinged arm with a massless child and compares the result with MuJoCo; it fails before the change.</p>
+    <pre><span class="file">mujoco_warp/_src/smooth.py</span><span class="hunk">@@ -700,15 +700,18 @@ def _subtree_div(</span><span class="ctx">   # Model:</span><span class="ctx">   body_subtreemass: wp.array2d[float],</span><span class="ctx">   # Data in:</span><span class="add">+  xipos_in: wp.array2d[wp.vec3],</span><span class="ctx">   subtree_com_in: wp.array2d[wp.vec3],</span><span class="ctx">   # Data out:</span><span class="ctx">   subtree_com_out: wp.array2d[wp.vec3],</span><span class="ctx"> ):</span><span class="ctx">   worldid, bodyid = wp.tid()</span><span class="del">-  com = subtree_com_in[worldid, bodyid]</span><span class="ctx">   mass = body_subtreemass[worldid % body_subtreemass.shape[0], bodyid]</span><span class="del">-  if mass != 0.0:</span><span class="del">-    subtree_com_out[worldid, bodyid] = com / mass</span><span class="add">+  # massless subtree: use the body inertial frame, as in mj_comPos</span><span class="add">+  if mass &lt; MJ_MINVAL:</span><span class="add">+    subtree_com_out[worldid, bodyid] = xipos_in[worldid, bodyid]</span><span class="add">+  else:</span><span class="add">+    subtree_com_out[worldid, bodyid] = subtree_com_in[worldid, bodyid] / mass</span><span class="ctx"> </span><span class="ctx"> </span><span class="ctx"> @wp.kernel</span><span class="hunk">@@ -825,7 +828,7 @@ def com_pos(m: Model, d: Data):</span><span class="ctx">       outputs=[d.subtree_com],</span><span class="ctx">     )</span><span class="ctx"> </span><span class="del">-  wp.launch(_subtree_div, dim=(d.nworld, m.nbody), inputs=[m.body_subtreemass, d.subtree_com], outputs=[d.subtree_com])</span><span class="add">+  wp.launch(_subtree_div, dim=(d.nworld, m.nbody), inputs=[m.body_subtreemass, d.xipos, d.subtree_com], outputs=[d.subtree_com])</span><span class="ctx">   wp.launch(</span><span class="ctx">     _cinert,</span><span class="ctx">     dim=(d.nworld, m.nbody),</span></pre>
+    <p>Sensors and cameras that follow such a body now read its real position. The motion of the simulation was not affected.</p>
+  </section>
+  <section id="erdos-739">
+    <h2><a class="title" href="https://github.com/google-deepmind/formal-conjectures/pull/7703">Erdős Problem 739 in Lean</a></h2>
+    <p class="m">Google DeepMind, formal-conjectures #7703</p>
+    <h3>context</h3>
+    <p>Formal Conjectures collects open maths problems written in Lean, a language in which statements can be checked by a computer. Problem 739 asks: if a graph needs infinitely many colours, m of them, so that no two neighbours share a colour, does it contain a smaller graph that needs exactly n colours for every infinite n below m?</p>
+    <h3>change</h3>
+    <p>The file states the question with Mathlib&#x27;s chromaticCardinal and G.Subgraph, plus three variants: the n = ℵ₀ case (solved, from de Bruijn and Erdős), the induced-subgraph version (Galvin showed it implies 2^κ &lt; 2^μ), and the question under the Generalized Continuum Hypothesis (open). The proofs are left as sorry, as the project does for open problems. The docstring records that Komjáth showed the statement is not provable in standard set theory.</p>
+    <pre><span class="file">FormalConjectures/ErdosProblems/739.lean</span><span class="ctx">…</span><span class="add">+@[category research open, question, AMS 5]</span><span class="add">+theorem erdos_739 :</span><span class="add">+    ∀ (V : Type u) (G : SimpleGraph V) (n : Cardinal.{u}),</span><span class="add">+      ℵ₀ ≤ n → n &lt; G.chromaticCardinal →</span><span class="add">+        ∃ H : G.Subgraph, H.coe.chromaticCardinal = n := by</span><span class="add">+  sorry</span><span class="ctx">…</span><span class="add">+@[category research solved, AMS 5]</span><span class="add">+theorem erdos_739.variants.aleph_zero :</span><span class="add">+    ∀ (V : Type u) (G : SimpleGraph V), ℵ₀ &lt; G.chromaticCardinal →</span><span class="add">+      ∃ H : G.Subgraph, H.coe.chromaticCardinal = ℵ₀ := by</span><span class="add">+  sorry</span><span class="ctx">…</span></pre>
+    <p>The problem is now stated precisely in Lean, so a future proof or counterexample can be checked against it.</p>
+  </section>
+  <section id="stdexec">
+    <h2><a class="title" href="https://github.com/NVIDIA/stdexec/pull/2417">Make start_now&#x27;s request_stop reach its senders</a></h2>
+    <p class="m">NVIDIA, stdexec #2417</p>
+    <h3>context</h3>
+    <p>stdexec is NVIDIA&#x27;s implementation of std::execution, the C++26 model for asynchronous work. start_now launches several tasks (senders) at once and returns a handle with request_stop() to cancel them. Each task was wrapped by the async scope with nest(), which replaces the task&#x27;s stop signal with the scope&#x27;s, so calling request_stop() on the handle never reached the tasks.</p>
+    <h3>change</h3>
+    <p>Each sender is first wrapped with __stop_when and the handle&#x27;s own stop token, and only then nested in the scope. The task now listens to both signals. The library&#x27;s counting scopes and spawn_future already used __stop_when the same way.</p>
+    <pre><span class="file">include/exec/start_now.hpp</span><span class="hunk">@@ -180,7 +182,10 @@ namespace experimental::execution</span><span class="ctx">       using __receiver_t = __receiver&lt;_Env&gt;;</span><span class="ctx">       using __sender_t   = __sender&lt;_Env&gt;;</span><span class="ctx">       template &lt;class _Sender&gt;</span><span class="del">-      using __nested_t = nest_result_t&lt;_AsyncScope, _Sender&gt;;</span><span class="add">+      using __stoppable_t =</span><span class="add">+        STDEXEC::__call_result_t&lt;STDEXEC::__stop_when_t, _Sender, STDEXEC::inplace_stop_token&gt;;</span><span class="add">+      template &lt;class _Sender&gt;</span><span class="add">+      using __nested_t = nest_result_t&lt;_AsyncScope, __stoppable_t&lt;_Sender&gt;&gt;;</span><span class="ctx"> </span><span class="ctx">       STDEXEC::__tuple&lt;STDEXEC::connect_result_t&lt;__nested_t&lt;_Senders&gt;, __receiver_t&gt;...&gt;</span><span class="ctx">         __opstates_;</span><span class="hunk">@@ -188,8 +193,12 @@ namespace experimental::execution</span><span class="ctx">      public:</span><span class="ctx">       constexpr __storage(_Env&amp;&amp; __env, _AsyncScope&amp; __scope, _Senders&amp;&amp;... __sndr)</span><span class="ctx">         : __storage_base&lt;_Env&gt;(static_cast&lt;_Env&amp;&amp;&gt;(__env), sizeof...(__sndr))</span><span class="add">+        // nest() gives the sender the scope&#x27;s stop token in place of the receiver&#x27;s,</span><span class="add">+        // so the storage&#x27;s token has to be fused in underneath it.</span><span class="ctx">         , __opstates_{</span><span class="del">-            STDEXEC::connect(__scope.nest(static_cast&lt;_Senders&amp;&amp;&gt;(__sndr)), __receiver_t{this})...}</span><span class="add">+            STDEXEC::connect(__scope.nest(STDEXEC::__stop_when(static_cast&lt;_Senders&amp;&amp;&gt;(__sndr),</span><span class="add">+                                                               this-&gt;__source_.get_token())),</span><span class="add">+                             __receiver_t{this})...}</span><span class="ctx">       {</span><span class="ctx">         // Start all of the child operations</span><span class="ctx">         STDEXEC::__apply(STDEXEC::__for_each{STDEXEC::start}, __opstates_);</span></pre>
+    <p>request_stop() cancels the running work. Two tests were added, one failing before the change, and the code was run under AddressSanitizer, UndefinedBehaviorSanitizer and ThreadSanitizer on clang and gcc.</p>
+  </section>
+  <section id="mujoco">
+    <h2><a class="title" href="https://github.com/google-deepmind/mujoco/pull/3354">Skip textures the classic renderer can&#x27;t upload</a></h2>
+    <p class="m">Google DeepMind, mujoco #3354</p>
+    <h3>context</h3>
+    <p>MuJoCo has two renderers. KTX texture files are stored as a single-channel block of bytes meant for the newer Filament renderer. The classic OpenGL renderer only handles RGB or RGBA images, and on any other channel count it called mju_error, which ends the program, so loading a model with a KTX texture crashed the viewer.</p>
+    <h3>change</h3>
+    <p>A check at the top of mjr_uploadTexture skips textures that are not 3 or 4 channels and prints a warning. Because the check runs first, the later else branch can assume 4 channels and the old error is gone. The check also covers cube maps, which had been reading the single-channel data as RGB.</p>
+    <pre><span class="file">src/render/classic/render_context.c</span><span class="hunk">@@ -1365,6 +1365,16 @@ void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {</span><span class="ctx">   int w = m-&gt;tex_width[texid];</span><span class="ctx">   float plane[4];</span><span class="ctx"> </span><span class="add">+  // the classic renderer only uploads 3- (RGB) or 4-channel (RGBA) textures. KTX</span><span class="add">+  // and other encoded textures are single-channel blobs for the Filament renderer</span><span class="add">+  // (see LoadKTX); skip them with a warning instead of aborting (issue #3343).</span><span class="add">+  if (m-&gt;tex_nchannel[texid] != 3 &amp;&amp; m-&gt;tex_nchannel[texid] != 4) {</span><span class="add">+    mju_warning(&quot;texture %d: classic renderer can&#x27;t upload %d-channel data, &quot;</span><span class="add">+                &quot;skipping (KTX/encoded textures need the Filament renderer)&quot;,</span><span class="add">+                texid, m-&gt;tex_nchannel[texid]);</span><span class="add">+    return;</span><span class="add">+  }</span><span class="add">+</span><span class="ctx">   // 2D texture</span><span class="ctx">   if (m-&gt;tex_type[texid] == mjTEXTURE_2D) {</span><span class="ctx">     // OpenGL settings</span><span class="hunk">@@ -1390,11 +1400,9 @@ void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {</span><span class="ctx">     if (m-&gt;tex_nchannel[texid] == 3) {</span><span class="ctx">       type = GL_RGB;</span><span class="ctx">       internaltype = (m-&gt;tex_colorspace[texid] == mjCOLORSPACE_SRGB) ? GL_SRGB8_EXT : GL_RGB;</span><span class="del">-    } else if (m-&gt;tex_nchannel[texid] == 4) {</span><span class="add">+    } else {  // 4 channels, guaranteed by the channel check at the top of the function</span><span class="ctx">       type = GL_RGBA;</span><span class="ctx">       internaltype = (m-&gt;tex_colorspace[texid] == mjCOLORSPACE_SRGB) ? GL_SRGB8_ALPHA8_EXT : GL_RGBA;</span><span class="del">-    } else {</span><span class="del">-      mju_error(&quot;Number of channels not supported: %d&quot;, m-&gt;tex_nchannel[texid]);</span><span class="ctx">     }</span><span class="ctx"> </span><span class="ctx">     glTexImage2D(GL_TEXTURE_2D, 0, internaltype, m-&gt;tex_width[texid],</span></pre>
+    <p>The model loads and every other texture still renders. A regression test builds a model with a KTX texture and creates the render context.</p>
+  </section>
+  <section id="warp">
+    <h2><a class="title" href="https://github.com/NVIDIA/warp/pull/1595">Fix Adam.set_params re-zeroing fp16 moment buffers</a></h2>
+    <p class="m">NVIDIA, warp #1595</p>
+    <h3>context</h3>
+    <p>Warp is NVIDIA&#x27;s Python framework for GPU simulation. Its Adam optimizer keeps two running averages per parameter, the moments m and v, and keeps them in fp32 even when the parameter is fp16. set_params() rebuilt the moments whenever their type differed from the parameter&#x27;s type, which is always the case for fp16.</p>
+    <h3>change</h3>
+    <p>The check now compares against the moment type (dtype) rather than the parameter type, so existing buffers are kept.</p>
+    <pre><span class="file">warp/_src/optim/adam.py</span><span class="hunk">@@ -129,9 +129,11 @@ def set_params(self, params):</span><span class="ctx">                 else:</span><span class="ctx">                     raise RuntimeError(f&quot;Unsupported dtype for Warp Adam optimizer: {param.dtype}&quot;)</span><span class="ctx"> </span><span class="del">-                if self.m[i] is None or self.m[i].shape != param.shape or self.m[i].dtype != param.dtype:</span><span class="add">+                # Moments are always fp32 even for fp16 params, so compare against ``dtype`` (the moment</span><span class="add">+                # buffer dtype), not ``param.dtype``, otherwise the buffers are re-zeroed on every call.</span><span class="add">+                if self.m[i] is None or self.m[i].shape != param.shape or self.m[i].dtype != dtype:</span><span class="ctx">                     self.m[i] = wp.zeros(shape=param.shape, dtype=dtype, device=param.device)</span><span class="del">-                if self.v[i] is None or self.v[i].shape != param.shape or self.v[i].dtype != param.dtype:</span><span class="add">+                if self.v[i] is None or self.v[i].shape != param.shape or self.v[i].dtype != dtype:</span><span class="ctx">                     self.v[i] = wp.zeros(shape=param.shape, dtype=dtype, device=param.device)</span><span class="ctx"> </span><span class="ctx">     def reset_internal_state(self):</span></pre>
+    <p>Calling set_params() again no longer resets training state for fp16 parameters.</p>
+  </section>
+</main>
+</body>
+</html>
