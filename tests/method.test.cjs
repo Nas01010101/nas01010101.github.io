@@ -39,3 +39,10 @@ test('the method lives on the planet page and old links reach it', () => {
   assert.ok(read('index.html').includes('href="earth.html#method"'));
   assert.match(read('flow.html'), /http-equiv="refresh" content="0; url=earth\.html#method"/);
 });
+
+test('the drawing sits at the end of the method, with its file and a description', () => {
+  const earth = read('earth.html');
+  assert.ok(earth.indexOf('id="drawing"') > earth.indexOf('id="method-network"'));
+  assert.match(earth, /<img src="earth-drawing.png" width="300" height="299" loading="lazy" alt="Hand drawing/);
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'earth-drawing.png')));
+});

@@ -85,6 +85,9 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 #method p,#method li{margin-bottom:8px}
 #method ul{padding-left:2ch;margin:0 0 8px}
 #method .eq{white-space:pre-wrap;margin:8px 0 16px}
+#drawing{margin:48px 0 0}
+#drawing img{display:block;max-width:100%;height:auto}
+#drawing figcaption{margin-top:8px}
 #method pre{margin:8px 0 16px;overflow-x:auto;font:inherit}
 /* A phone's thumb needs more than a line of text. */
 @media (pointer:coarse){a,button{padding:6px 2px}}
@@ -150,41 +153,33 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
   </div>
   <article id="method" aria-labelledby="method-h">
     <h2 id="method-h">method</h2>
-    <p>Everything on this page is data drawn as text. Two parts are forecasts we make: the weather on the map and globe, and a correction to where satellites will be. The rest is published data moved to this second in your browser.</p>
-    <ul class="m">
-      <li><span class="here">clouds, rain, temperature and pressure</span>: our networks once they have run today; Open-Meteo's forecast until then, and the map says which.</li>
-      <li><span class="here">satellite dots</span>: CelesTrak's published orbits, moved with the formulas below. The network does not move them.</li>
-      <li><span class="here">the clouds on the home page</span>: Open-Meteo's forecast for this hour.</li>
-    </ul>
+    <p>Two things on this page are our forecasts: the weather on the map and globe, and a correction to where satellites will be. The rest is published data.</p>
 
     <h3 id="method-weather-h">1. weather</h3>
-    <p>The Earth is cut into 1,152 cells, 24 rows by 48 columns on a 7.5° grid. Each morning the job reads the past 30 days of daily means in every cell for 7 fields: cloud cover, 2 m temperature, rain, pressure, wind east, wind north and water vapour. A U-Net, a convolutional network that shrinks the map to see large patterns and grows it back to keep the detail, maps that 30-day stack to today's mean of one field in every cell.</p>
-    <p>One network forecasts cloud (5,114,817 weights). Three networks each forecast temperature and pressure (1,294,049 weights apiece), and the forecast is their mean. All were trained on ERA5, a reanalysis of the world's weather. The cloud network learned from 1979 to 2018, was checked on 2019 and 2020, and was tested once on 2021 and 2022. The temperature and pressure networks were then tuned on 30 days of Open-Meteo data, the source they read live.</p>
-    <p>A forecast is scored once its day has passed, against Open-Meteo's analysis of that day. The score is the area-weighted mean squared error, with each cell weighted by cos(latitude) because cells shrink toward the poles:</p>
-    <p class="eq">loss = Σ w · (f − a)² / Σ w
-w = cos(latitude), f the forecast, a the actual</p>
-    <p>The tables show its square root, the typical miss, in the field's own unit. Cloud is in points: percentage points of sky covered, from 0 to 100. The bar to beat is repeating the day before, which any forecast must beat to be worth anything.</p>
+    <p>The Earth is cut into 1,152 cells on a 7.5° grid. Each morning a U-Net reads the past 30 days of 7 fields in every cell (cloud, temperature, rain, pressure, wind east and north, water vapour) and predicts today's mean cloud, temperature and pressure. One network forecasts cloud; temperature and pressure are each the mean of 3. All were trained on ERA5, 1979 to 2018, and tested on 2021 and 2022. Until they run, the map shows Open-Meteo's forecast and says so.</p>
+    <p>A day is scored once it has passed, against Open-Meteo's analysis, with each cell weighted by its area:</p>
+    <p class="eq">loss = Σ w · (f − a)² / Σ w,  w = cos(latitude)</p>
+    <p>The bars show its square root, the typical miss. The bar to beat is repeating the day before.</p>
     <div id="method-weather"><p class="m">loading scores</p></div>
-    <p class="m">Reference, 28 stored days from 7 Oct to 3 Nov 2026, cloud: network 19.3 points, ridge regression 21.4, repeating the day before 25.4. Open-Meteo's own forecast made a day earlier misses by 13.1, but it is scored against output of the same system, so it is not a fair bar.</p>
 
     <h3 id="method-orbits">2. satellite positions</h3>
-    <p>CelesTrak publishes each object's mean elements: its orbit's size, shape, tilt and orientation at one moment, the epoch. The page moves every object from its epoch to the time shown, for about 17,000 objects at once, so it uses the secular part of the theory behind SGP4, the standard formula, rather than all of it.</p>
-    <p>The elements are Kozai means; SGP4 first recovers the Brouwer mean motion n and axis a. With J2 = 0.001082616 the flattening of the Earth, e the eccentricity, i the inclination and p = a(1 − e²), the flattening turns the orbit's node Ω and its perigee ω at a steady rate, and shifts the mean motion:</p>
+    <p>CelesTrak publishes each object's mean elements at one moment. The page moves about 17,000 objects from that moment to now with the secular J2 part of SGP4: the Earth's flattening turns each orbit's node Ω and perigee ω at a steady rate.</p>
     <p class="eq">dΩ/dt = −1.5 J2 n cos i / p²
 dω/dt = 0.75 J2 n (5 cos²i − 1) / p²
 dM/dt = n (1 + 0.75 J2 √(1−e²) (3 cos²i − 1) / p²)</p>
-    <p>Drag enters as CelesTrak's first derivative of the mean motion, which adds a term in t² to the mean anomaly M. Kepler's equation M = E − e sin E is solved for E by Newton's method, and the position follows from E, Ω and ω. Distances are in Earth radii, 6,378.135 km.</p>
-    <p>The forecast button moves the dots 1, 6 or 24 hours ahead with the same formulas. Against the full SGP4 model, a low-orbit dot a day ahead lands within 20 km 95% of the time; the page's own test measures it.</p>
+    <p>Kepler's equation M = E − e sin E is solved by Newton's method. A low-orbit dot a day ahead lands within 20 km of full SGP4 95% of the time.</p>
 
     <h3 id="method-network">3. satellite correction</h3>
-    <p>SGP4 itself drifts from where an object will be, mostly along its track. A network learns that drift. It reads 45 numbers per object: its current elements and how far SGP4 from its element sets 1, 3, 7 and 15 days old drifted from its newer ones. It outputs a correction to SGP4's position in height, along track and across, for any horizon from 1 to 30 days. It is a residual network, 6 blocks 256 wide, and the correction is the mean of 3 such networks, trained on 28.6 million examples from published elements, 2017 to 2025.</p>
-    <p>The truth for a forecast is SGP4 run from the first element set published after its horizon, not a radar or laser measurement. Manoeuvres are not filtered out. Each day the job scores the forecasts that began 1, 3 and 7 days earlier:</p>
+    <p>SGP4 drifts from where an object will be, mostly along its track. A residual network reads each object's elements and how far its older element sets drifted, and corrects SGP4 for 1 to 30 days ahead. It is the mean of 3 networks trained on 28.6 million examples from 2017 to 2025. The truth is SGP4 from the next published element set, not a radar measurement.</p>
     <div id="method-sats"><p class="m">loading scores</p></div>
-    <p class="m">Reference, 2025 replay: on an eighth of the catalogue, with weights trained through 2024, the median miss 7 days ahead fell from 11.34 km to 6.76 km, and 3 days ahead from 2.95 to 2.33 km. The network learned from the full public catalogue, debris included; the live job runs on CelesTrak's active list, which leaves debris out. Live misses are larger for SGP4 as much as for the network, and how much of the gap each difference explains is not measured yet.</p>
-    <p class="m">The corrections are published each day for every object the network may correct. A day ahead the median one is 4.9 km along track, under one pixel of the globe at its first zoom, so the dots leave them out.</p>
+    <p class="m">2025 replay on an eighth of the catalogue: the median miss 7 days ahead fell from 11.34 to 6.76 km. The corrections are under one pixel of the globe a day ahead, so the dots leave them out.</p>
 
     <h3>4. data</h3>
-    <p class="m">Weather by <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0), its model output for past hours, not station readings. Elements by <a href="https://celestrak.org/NORAD/elements/">CelesTrak</a>. Training data: ERA5 through <a href="https://weatherbench2.readthedocs.io/">WeatherBench 2</a>. Code, weights and the daily job: <a href="https://github.com/Nas01010101/ascii-earth-forecast">ascii-earth-forecast</a>.</p>
+    <p class="m">Weather by <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0). Elements by <a href="https://celestrak.org/NORAD/elements/">CelesTrak</a>. ERA5 through <a href="https://weatherbench2.readthedocs.io/">WeatherBench 2</a>. Code and weights: <a href="https://github.com/Nas01010101/ascii-earth-forecast">ascii-earth-forecast</a>.</p>
+    <figure id="drawing">
+      <img src="earth-drawing.png" width="300" height="299" loading="lazy" alt="Hand drawing of the Earth: wobbly continents, the UK as one dot labelled probably, a stick figure labelled me in North America, and a big spider on Australia">
+      <figcaption class="m">fig. 1: the most accurate depiction of the Earth on this page</figcaption>
+    </figure>
   </article>
 </section>
 <script src="orbits.js"></script>

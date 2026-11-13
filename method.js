@@ -45,7 +45,7 @@ function renderMethod(meta) {
   const daily = dailyMisses(meta.weather && meta.weather.losses), days = daily.cloud.length;
   if (!days) wBox.append(el('p', 'm', 'no scored network forecasts yet'));
   else {
-    wBox.append(el('p', '', `Last ${days} scored day${days > 1 ? 's' : ''}, ${daily.cloud[0].date} to ${daily.cloud[days - 1].date}. Typical miss over those days; each bar starts at zero.`));
+    wBox.append(el('p', '', `Last ${days} scored day${days > 1 ? 's' : ''}, ${daily.cloud[0].date} to ${daily.cloud[days - 1].date}.`));
     const pre = el('pre');
     for (const [name, [word, unit, dp]] of Object.entries(UNITS)) {
       const d = daily[name];
@@ -59,13 +59,13 @@ function renderMethod(meta) {
   }
   const sat = satRows(meta.satellites && meta.satellites.losses);
   if (!sat.rows.length) { sBox.append(el('p', 'm', 'no scored satellite forecasts yet')); return; }
-  sBox.append(el('p', '', `Median miss of the forecasts scored on ${sat.date}, in km, over every object with a newer element set.`));
+  sBox.append(el('p', '', `Median miss in km, scored on ${sat.date}.`));
   const pre = el('pre');
   pre.append(el('span', 'm', 'days  objects  corrected   SGP4  network\n'));
   for (const r of sat.rows) pre.append(el('span', '', `${String(r.days).padStart(4)}  ${String(r.n).padStart(7)}  ${String(r.corrected).padStart(9)}  ${r.sgp4.toFixed(1).padStart(5)}  ${r.model.toFixed(1).padStart(7)}\n`));
   sBox.append(pre);
   const none = sat.rows.filter(r => r.corrected === 0).map(r => r.days);
-  if (none.length) sBox.append(el('p', 'm', `At ${none.join(' and ')} days no object was corrected: the network runs only when the job held 2 days of element sets at the start, and those forecasts began before it did. Their miss is SGP4's.`));
+  if (none.length) sBox.append(el('p', 'm', `At ${none.join(' and ')} days the forecasts began before the network ran, so their miss is SGP4's.`));
 }
 
 if (typeof module !== 'undefined') module.exports = { dailyMisses, bar, satRows };
