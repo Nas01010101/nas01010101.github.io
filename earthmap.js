@@ -43,9 +43,9 @@ function fillBands() {
 // Picks the layer the field allows, then repaints the map's colours and its legend.
 function applyLayer() {
   layer = wantTemp && field.temp ? 'temp' : 'terrain';
-  const button = $('layer');
-  button.hidden = !field.temp;
-  button.textContent = layer === 'temp' ? 'show terrain' : 'show temperature';
+  $('layer-temp').hidden = !field.temp;
+  $('layer-temp').setAttribute('aria-pressed', layer === 'temp');
+  $('layer-terrain').setAttribute('aria-pressed', layer === 'terrain');
   fillBands();
   buildLegend();
 }
@@ -351,7 +351,9 @@ mapEl.addEventListener('pointerup', e => {
 mapEl.addEventListener('pointercancel', () => { mapPress = null; hovered = null; mapReadout(); });
 mapEl.addEventListener('pointerleave', () => { if (!mapPress) { hovered = null; mapReadout(); } });
 
-$('layer').addEventListener('click', () => { wantTemp = !wantTemp; applyLayer(); mapSource(); dirty = true; });
+const pickLayer = temp => () => { wantTemp = temp; applyLayer(); mapSource(); dirty = true; };
+$('layer-temp').addEventListener('click', pickLayer(true));
+$('layer-terrain').addEventListener('click', pickLayer(false));
 
 // Where the page scrolls, a vertical swipe on the map has to scroll it instead of turning the globe.
 function mapTouch() { mapEl.style.touchAction = document.documentElement.scrollHeight > innerHeight ? 'pan-y' : 'none'; }

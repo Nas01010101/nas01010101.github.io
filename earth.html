@@ -58,6 +58,8 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 #map{position:relative;aspect-ratio:var(--ratio);cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none}
 #map canvas{position:absolute;inset:0;width:100%;height:100%}
 #map-lines{pointer-events:none}
+#layers{margin:0 0 8px}
+#layers button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
 #map-read{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 16px;margin-top:8px}
 #legend,#globe-legend{display:flex;flex-wrap:wrap;gap:4px 24px;margin:8px 0 0;padding:0;list-style:none}
 /* The globe's key belongs to the planet above it, so the gap falls under it. */
@@ -113,11 +115,12 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 </div>
 <section id="forecast" aria-label="Forecast">
   <ul id="globe-legend" class="m" aria-label="Globe legend"></ul>
+  <p id="layers" class="m">colour by <button id="layer-temp" type="button" aria-pressed="true" hidden>temperature</button> <button id="layer-terrain" type="button" aria-pressed="false">terrain</button></p>
   <div id="map" role="img" aria-label="Forecast map, loading">
     <canvas id="map-glyphs" aria-hidden="true"></canvas>
     <canvas id="map-lines" aria-hidden="true"></canvas>
   </div>
-  <p id="map-read"><span><span id="map-mark" class="here">+ </span><span id="map-text"></span></span><span><span class="m">point or tap to read a place</span> <button id="layer" type="button" hidden>show terrain</button></span></p>
+  <p id="map-read"><span><span id="map-mark" class="here">+ </span><span id="map-text"></span></span><span><span class="m">point or tap to read a place</span></span></p>
   <ul id="legend" class="m" aria-label="Map legend"></ul>
   <div id="facts">
     <section aria-labelledby="today-h">

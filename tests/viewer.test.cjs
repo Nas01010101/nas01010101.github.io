@@ -374,3 +374,11 @@ test('the pages start their data downloads from the head', () => {
   // The preloads are only reused when the scripts ask for the same address.
   assert.ok(fs.readFileSync(path.join(__dirname, '..', 'planet.js'), 'utf8').includes(`const FORECAST = '${data}'`));
 });
+
+test('the terrain switch sits above the map and is never hidden', () => {
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'earth.html'), 'utf8');
+  const terrain = html.match(/<button id="layer-terrain"[^>]*>/);
+  assert.ok(terrain && !/hidden/.test(terrain[0]), 'terrain button is visible');
+  assert.ok(html.indexOf('id="layers"') < html.indexOf('id="map"'), 'switch comes before the map');
+  assert.ok(!html.includes('id="layer"'), 'old toggle removed');
+});
