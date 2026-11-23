@@ -20,41 +20,141 @@ function hash(a, b, c) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-// A drifting field that looks like cloud; `cell` columns share one value, so deeper levels look coarser.
+// A drifting field that looks like cloud, drawn until the real data loads; `cell` columns share one value, so deeper levels look coarser.
 function field(x, y, t, cell) {
   const cx = Math.floor(x / cell) * cell, cy = Math.floor(y / cell) * cell;
   const v = 0.5 + 0.28 * Math.sin(cx * 0.7 + t * 0.9) * Math.cos(cy * 1.3 - t * 0.6) + 0.22 * Math.sin((cx + cy) * 0.45 + t * 0.5);
   return SHADE[Math.max(0, Math.min(SHADE.length - 1, Math.floor(v * SHADE.length)))];
 }
 
-// The U-Net: encoder down the left, decoder up the right, skip links across. Blocks shrink as the grid halves.
-const BLOCKS = [ // name, first row, rows, first column, width, level (1 = full grid)
-  ['A', 1, 3, 0, 8, 1], ['B', 5, 2, 2, 6, 2], ['C', 8, 1, 4, 4, 4], ['G', 9, 1, 17, 2, 8],
-  ['F', 8, 1, 30, 4, 4], ['E', 5, 2, 30, 6, 2], ['D', 1, 3, 30, 8, 1],
+// The U-Net: encoder down the left, decoder up the right, skip links across. Each block is a small world map,
+// north up, that halves as the grid does: A is the input day, D the network's forecast for today.
+const BLOCKS = [ // name, first row, rows, first column, width
+  ['A', 1, 6, 0, 12], ['B', 8, 3, 3, 6], ['C', 12, 2, 4, 4], ['G', 14, 1, 17, 2],
+  ['F', 12, 2, 30, 4], ['E', 8, 3, 29, 6], ['D', 1, 6, 26, 12],
 ];
-const SKIPS = [2, 5, 8]; // one row per full, half and quarter grid
-const UNET_PERIOD = 5.6;
+const SKIPS = [[3, 12, 14], [9, 9, 20], [12, 8, 22]]; // row, first column, length: full, half and quarter grid
+const UNET_PERIOD = 5.6, DAY_STEP = 0.3; // seconds a pulse takes, seconds each input day is shown
+const GRID_H = 24, GRID_W = 48; // the forecast grid, 7.5 degrees, row 0 at the south pole
+const CLOUD = '·.:-=+*#%@'; // 0 to 100% cloud; the clear end is a dot so the land or sea colour shows
 
-function unetFrame(t) {
-  const g = blank(12), stage = Math.floor((t % UNET_PERIOD) / UNET_PERIOD * BLOCKS.length);
-  put(g, 0, 0, 'Open-Meteo, 30 days');
-  put(g, 0, 30, 'today', '');
-  BLOCKS.forEach(([name, row, rows, col, width, level], k) => {
-    const cls = k !== stage ? 'm' : name === 'D' ? 'net' : '';
-    for (let r = 0; r < rows; r++) for (let c = 0; c < width; c++) g[row + r][col + c] = [field(col + c, row + r, t, level), cls];
+// Mean of a 24 × 48 grid over each of h × w cells, north row first.
+function pool(grid, h, w) {
+  const out = new Float64Array(h * w);
+  for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+    const r0 = Math.floor(r * GRID_H / h), r1 = Math.floor((r + 1) * GRID_H / h), c0 = Math.floor(c * GRID_W / w), c1 = Math.floor((c + 1) * GRID_W / w);
+    let s = 0;
+    for (let y = r0; y < r1; y++) for (let x = c0; x < c1; x++) s += grid[(GRID_H - 1 - y) * GRID_W + x];
+    out[r * w + c] = s / ((r1 - r0) * (c1 - c0));
+  }
+  return out;
+}
+
+// Sea (-1) or a land height band (0 low to 3 high) for each cell of every block size, by majority of 16 points in the cell.
+// land(lat, lon) and band(lat, lon) take radians; on the page they are the globe's own coastline and ERA5 terrain.
+function groundGrids(land, band) {
+  const out = {};
+  for (const [, , h, , w] of BLOCKS) {
+    const g = out[`${h}x${w}`] = new Int8Array(h * w);
+    for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+      const votes = [0, 0, 0, 0];
+      let sea = 0;
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        const lat = (0.5 - (r + (i + 0.5) / 4) / h) * Math.PI, lon = ((c + (j + 0.5) / 4) / w - 0.5) * 2 * Math.PI;
+        if (land(lat, lon)) votes[band(lat, lon)]++; else sea++;
+      }
+      const most = votes.indexOf(Math.max(...votes));
+      g[r * w + c] = 16 - sea >= 6 ? most : -1;
+    }
+  }
+  return out;
+}
+
+// data, when the files have loaded: { days: [{ date, cloud }], today: { date, cloud }, ground: groundGrids(...) }.
+// The input block steps through the last 30 days of Open-Meteo cloud; the encoder blocks pool that day,
+// the decoder blocks pool the network's forecast. Colour is the ground under each cell: blue sea, green to brown land.
+function unetFrame(t, data) {
+  const g = blank(17), stage = Math.floor((t % UNET_PERIOD) / UNET_PERIOD * BLOCKS.length);
+  const real = data && data.days && data.days.length && data.today && data.ground;
+  const day = real && data.days[Math.floor(t / DAY_STEP) % data.days.length];
+  put(g, 0, 0, real ? `Open-Meteo ${day.date.slice(5)}` : 'Open-Meteo, 30 days');
+  put(g, 0, 25, 'network today', stage === BLOCKS.length - 1 ? 'net' : '');
+  BLOCKS.forEach(([name, row, rows, col, width], k) => {
+    const dim = k !== stage ? ' d' : '';
+    if (!real) {
+      const cls = k !== stage ? 'm' : name === 'D' ? 'net' : '';
+      for (let r = 0; r < rows; r++) for (let c = 0; c < width; c++) g[row + r][col + c] = [field(col + c, row + r, t, GRID_W / width), cls];
+      return;
+    }
+    const cloud = pool(k < 4 ? day.cloud : data.today.cloud, rows, width), ground = data.ground[`${rows}x${width}`];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < width; c++) {
+      const v = cloud[r * width + c], ch = CLOUD[Math.max(0, Math.min(CLOUD.length - 1, Math.floor(v / 100 * CLOUD.length)))];
+      g[row + r][col + c] = [ch, `g${ground[r * width + c] + 1}${dim}`];
+    }
   });
   // Skip links copy each encoder level across; a dot travels along each one.
-  SKIPS.forEach((row, k) => {
-    put(g, row, 9, '┄'.repeat(20));
-    put(g, row, 9 + Math.floor((t * 6 + k * 7) % 20), '•', '');
+  SKIPS.forEach(([row, col, len], k) => {
+    put(g, row, col, '┄'.repeat(len));
+    put(g, row, col + Math.floor((t * 6 + k * 7) % len), '•', '');
   });
   const lit = s => (s === stage ? '' : 'm');
-  put(g, 4, 5, '▼', lit(0)); put(g, 7, 5, '▼', lit(1));
-  put(g, 9, 5, '└──────────►', lit(2));
-  put(g, 9, 20, '──────────┘', lit(3));
-  put(g, 7, 31, '▲', lit(4)); put(g, 4, 31, '▲', lit(5));
-  put(g, 11, 0, 'U-Net, 24×48 → 3×6 → 24×48 grid');
+  put(g, 7, 5, '▼', lit(0)); put(g, 11, 5, '▼', lit(1));
+  put(g, 14, 5, '└──────────►', lit(2));
+  put(g, 14, 19, '─────────────┘', lit(3));
+  put(g, 11, 32, '▲', lit(4)); put(g, 7, 32, '▲', lit(5));
+  put(g, 15, 0, 'U-Net, 24×48 → 3×6 → 24×48 grid');
+  if (real) {
+    put(g, 16, 0, 'sea', 'g0'); put(g, 16, 4, 'low', 'g1'); put(g, 16, 8, 'high', 'g3');
+    put(g, 16, 14, '·:=*%@ cloud 0→100%');
+  } else put(g, 16, 0, 'cloud, 0 to 100%');
   return g;
+}
+
+// The last 30 days of history.npz (numpy savez_compressed of days and cloud) as [{ date, cloud }], oldest first.
+// Reads the zip's central directory, inflates the two members with the browser's DecompressionStream.
+async function readHistory(buffer, keep = 30) {
+  const bytes = new Uint8Array(buffer), view = new DataView(buffer), files = {};
+  let end = bytes.length - 22;
+  while (end >= 0 && view.getUint32(end, true) !== 0x06054b50) end--;
+  if (end < 0) throw new Error('not a zip');
+  let at = view.getUint32(end + 16, true);
+  for (let n = view.getUint16(end + 10, true); n > 0; n--) {
+    const method = view.getUint16(at + 10, true), nameLen = view.getUint16(at + 28, true), extraLen = view.getUint16(at + 30, true), commentLen = view.getUint16(at + 32, true);
+    let size = view.getUint32(at + 20, true), offset = view.getUint32(at + 42, true);
+    // Sizes or offsets too big for 32 bits move to a zip64 extra field, in this order.
+    for (let e = at + 46 + nameLen; e < at + 46 + nameLen + extraLen;) {
+      const id = view.getUint16(e, true), len = view.getUint16(e + 2, true);
+      if (id === 1) {
+        let p = e + 4;
+        if (view.getUint32(at + 24, true) === 0xffffffff) p += 8;
+        if (size === 0xffffffff) { size = Number(view.getBigUint64(p, true)); p += 8; }
+        if (offset === 0xffffffff) offset = Number(view.getBigUint64(p, true));
+      }
+      e += 4 + len;
+    }
+    files[new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLen))] = { method, size, offset };
+    at += 46 + nameLen + extraLen + commentLen;
+  }
+  const member = async name => {
+    const f = files[name];
+    if (!f) throw new Error(`${name} missing`);
+    const start = f.offset + 30 + view.getUint16(f.offset + 26, true) + view.getUint16(f.offset + 28, true), raw = bytes.slice(start, start + f.size);
+    if (f.method === 0) return raw;
+    return new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  };
+  const npy = b => {
+    const v = new DataView(b.buffer, b.byteOffset), headLen = b[6] === 1 ? v.getUint16(8, true) : v.getUint32(8, true), start = (b[6] === 1 ? 10 : 12) + headLen;
+    const head = new TextDecoder().decode(b.subarray(b[6] === 1 ? 10 : 12, start));
+    return { descr: /'descr':\s*'([^']+)'/.exec(head)[1], shape: /'shape':\s*\(([^)]*)\)/.exec(head)[1].split(',').filter(s => s.trim()).map(Number), data: b.slice(start) };
+  };
+  const days = npy(await member('days.npy')), cloud = npy(await member('cloud.npy'));
+  if (cloud.descr !== '<f8' || cloud.shape[1] !== GRID_H || cloud.shape[2] !== GRID_W) throw new Error('unexpected cloud array');
+  const width = +days.descr.slice(2), chars = new Uint32Array(days.data.buffer), all = new Float64Array(cloud.data.buffer), cell = GRID_H * GRID_W;
+  const out = [];
+  for (let k = Math.max(0, cloud.shape[0] - keep); k < cloud.shape[0]; k++) {
+    out.push({ date: String.fromCodePoint(...chars.subarray(k * width, (k + 1) * width)).replace(/\0+$/, ''), cloud: all.subarray(k * cell, (k + 1) * cell) });
+  }
+  return out;
 }
 
 // The residual net: inputs, 6 hidden blocks, 3 outputs, then what the correction does along the track.
@@ -100,18 +200,37 @@ function html(grid) {
 }
 
 // Draws each pre[data-net]; animates only while one is on screen, and holds one frame under reduced motion.
+// The weather drawing switches to real data once forecast.json and history.npz load, fetched when the drawing nears the screen.
 function start() {
-  const frames = { unet: unetFrame, mlp: mlpFrame }, boxes = [...document.querySelectorAll('pre[data-net]')].filter(e => frames[e.dataset.net]);
+  const boxes = [...document.querySelectorAll('pre[data-net]')].filter(e => e.dataset.net === 'unet' || e.dataset.net === 'mlp');
   if (!boxes.length) return;
-  const draw = t => boxes.forEach(e => { e.innerHTML = html(frames[e.dataset.net](t)); });
-  draw(2.2);
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
-  const shown = new Set();
-  const seen = new IntersectionObserver(es => es.forEach(e => (e.isIntersecting ? shown.add(e.target) : shown.delete(e.target))));
+  let data = null, t = 2.2;
+  const draw = () => boxes.forEach(e => { e.innerHTML = html(e.dataset.net === 'unet' ? unetFrame(t, data) : mlpFrame(t)); });
+  const load = () => {
+    if (load.done || typeof FORECAST === 'undefined' || typeof DecompressionStream === 'undefined') return;
+    load.done = true;
+    const ok = r => (r.ok ? r : Promise.reject(r.status));
+    Promise.all([
+      fetch(`${FORECAST}forecast.json`).then(ok).then(r => r.json()),
+      fetch(`${FORECAST}history.npz`).then(ok).then(r => r.arrayBuffer()).then(b => readHistory(b)),
+    ]).then(([meta, days]) => {
+      const today = meta && meta.weather && meta.weather.today;
+      if (!today || !today.net || !Array.isArray(today.cloud) || today.cloud.length !== GRID_H * GRID_W || !days.length) return;
+      data = { days, today, ground: groundGrids(isLand, terrainBand) };
+      draw();
+    }).catch(() => {}); // the drawing keeps its stand-in field
+  };
+  draw();
+  if (!('IntersectionObserver' in window)) return load();
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches, shown = new Set();
+  const seen = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { shown.add(e.target); load(); } else shown.delete(e.target);
+  }), { rootMargin: '600px 0px' });
   boxes.forEach(e => seen.observe(e));
-  setInterval(() => { if (shown.size && !document.hidden) draw(performance.now() / 1000); }, 100);
+  if (still) return;
+  setInterval(() => { if (shown.size && !document.hidden) { t = performance.now() / 1000; draw(); } }, 100);
 }
 
-if (typeof module !== 'undefined') module.exports = { unetFrame, mlpFrame, html, COLS };
+if (typeof module !== 'undefined') module.exports = { unetFrame, mlpFrame, html, pool, groundGrids, readHistory, COLS };
 else start();
 })();

@@ -25,6 +25,7 @@ h1,h2{margin:0;font:inherit;font-weight:700}
 p{margin:0}
 .m{color:var(--muted)}
 .net{color:var(--net)}
+.g0{color:#4b93c4}.g1{color:#55b066}.g2{color:#c2ad52}.g3{color:#c4835d}.g4{color:#bf92c0}.d{opacity:.55}
 .here{color:var(--here)}
 .t{background:var(--bg);box-decoration-break:clone;-webkit-box-decoration-break:clone}
 ::selection{background:var(--fg);color:var(--bg)}
@@ -155,7 +156,7 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
   <article id="method" aria-labelledby="method-h">
     <h2 id="method-h">method</h2>
     <p>Twice a day a GitHub job feeds fresh public data to two kinds of neural network and writes the files this page draws. Every forecast is scored once its day has passed: the weather against repeating yesterday, the satellites against SGP4 alone.</p>
-    <pre class="pipe" data-net="unet" role="img" aria-label="Weather U-Net: 30 days of Open-Meteo fields pass down four blocks that halve the grid and up three that double it, with skip links across, to today's mean in every cell"><span class="m">weather</span>
+    <pre class="pipe" data-net="unet" role="img" aria-label="Weather U-Net: 30 days of Open-Meteo fields pass down four blocks that halve the grid and up three that double it, with skip links across, to today's mean in every cell. The input map steps through the last 30 days of real cloud cover and the output map is the network's forecast for today, over land and sea"><span class="m">weather</span>
 Open-Meteo: 1,152 cells, 7 fields
   │ last 30 days, every 6 hours
   ▼

@@ -40,3 +40,36 @@ test('the page loads the drawings, labels them for screen readers and keeps the 
   assert.match(earth, /<pre class="pipe" id="method-orbits" data-net="mlp" role="img" aria-label="[^"]+"/);
   assert.ok(earth.includes('<script src="netanim.js"></script>'));
 });
+
+const realData = days => {
+  const flat = v => new Float64Array(24 * 48).fill(v);
+  const ground = require('../netanim.js').groundGrids((lat, lon) => lon > 0, () => 1); // east half land, all band 1
+  return { days: days || [{ date: '2026-11-01', cloud: flat(0) }, { date: '2026-11-02', cloud: flat(100) }], today: { date: '2026-11-22', cloud: flat(55) }, ground };
+};
+
+test('with real data the input map steps through the days and the output map shows the forecast over land and sea', () => {
+  const data = realData(), a = unetFrame(0, data), b = unetFrame(0.31, data);
+  assert.ok(text(a).startsWith('Open-Meteo 11-01') && text(b).startsWith('Open-Meteo 11-02'));
+  for (const row of a) assert.strictEqual(row.length, COLS);
+  assert.strictEqual(a[1][0][0], '·', 'clear day draws the clear glyph');
+  assert.strictEqual(b[1][0][0], '@', 'overcast day draws the full glyph');
+  assert.strictEqual(a[1][26][0], '+', '55% forecast in the output map');
+  assert.match(a[1][0][1], /^g0/, 'west half is sea'); assert.match(a[1][11][1], /^g2/, 'east half is land band 1');
+  assert.ok(text(a).includes('sea low high'));
+});
+
+test('pool averages the grid north row first', () => {
+  const { pool } = require('../netanim.js'), g = new Float64Array(24 * 48);
+  for (let x = 0; x < 48; x++) g[23 * 48 + x] = 60; // north row
+  const p = pool(g, 6, 12);
+  assert.strictEqual(p[0], 15); assert.strictEqual(p[12 * 5], 0);
+});
+
+test('readHistory reads the last 30 days and their dates from a numpy npz', async () => {
+  const { readHistory } = require('../netanim.js'), buf = fs.readFileSync(path.join(__dirname, 'fixtures', 'history-small.npz'));
+  const days = await readHistory(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
+  assert.strictEqual(days.length, 30);
+  assert.strictEqual(days[0].date, '2026-11-06'); assert.strictEqual(days[29].date, '2026-11-35');
+  assert.strictEqual(days[0].cloud[0], 10); assert.strictEqual(days[29].cloud[23 * 48], 100);
+  await assert.rejects(readHistory(new ArrayBuffer(40)));
+});
