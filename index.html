@@ -12,7 +12,7 @@
 <link rel="preload" as="fetch" crossorigin href="https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/sats.bin">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+:root{--bg:#000;--fg:#e6e6e6;--muted:#9e9e9e;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
 *{box-sizing:border-box}
 /* 39 columns of the widest row at about .6em each, so a table always fits a narrow phone. */
 html{background:var(--bg);color:var(--fg);font:clamp(10px,calc((100vw - 32px) / 24),14px)/1.714 var(--mono);-webkit-text-size-adjust:100%}
@@ -34,25 +34,29 @@ main>#who{width:min(100%,39ch);margin:0 auto;padding-top:16px}
 /* The planet sits beside the text on landscape screens and above it on portrait ones; globe() reads the same query. */
 @media (min-width:600px) and (max-aspect-ratio:999/1000){html{font-size:16px}}
 @media (min-width:560px) and (min-aspect-ratio:1/1){.hero{align-items:flex-start;justify-content:center;padding:32px 0}}
-@media (min-width:760px) and (min-aspect-ratio:1/1){html{font-size:clamp(14px,min(.8vw,1.8vh),20px)}/* Margin, text, gap, planet, margin: the three gaps come out equal while the planet is .19 of the width. */
-.hero{padding-left:max(16px,calc(19.4vw - 13ch - 16px))}}
-h1{margin:0;font:inherit}
+@media (min-width:760px) and (min-aspect-ratio:1/1){html{font-size:clamp(16px,min(.9vw,1.9vh),20px)}/* Text, a 4rem gap and the planet (at most .19 of the width or .35 of the height, times RIM 1.1, twice) sit centred as one group; planetX() mirrors the left margin on the right. */
+.hero{padding-left:max(16px,calc((100vw - 39ch - 4rem - min(41.8vw,77vh)) / 2))}}
+h1{margin:0 0 .857rem;font:700 2rem/1.2 var(--mono)}
+/* Section names are the one bold step between the name and the body. */
+.roles th .t,.pr .t:first-child,#reading .split .t:first-child{color:var(--fg);font-weight:700}
 p{margin:0}
 .m{color:var(--muted)}
 ::selection{background:var(--fg);color:var(--bg)}
-.gap{margin-bottom:1.714rem}
-.pr{margin-bottom:8px} td.orgs{white-space:normal}
-#prs a{white-space:normal}
+.gap{margin-bottom:3.428rem}
+.pr{margin-bottom:8px} td.orgs{white-space:normal} tr[data-prs] td{vertical-align:top}
 table{width:100%;border-collapse:collapse}
 th,td{padding:0;font:inherit;text-align:left;white-space:nowrap}
 tr>:last-child{text-align:right}
 .roles{width:auto}
 .roles :last-child{text-align:left}
+/* On a phone the club's description drops under its name instead of pushing the page wider. */
+.roles td{vertical-align:top}
+.roles td:last-child{white-space:normal}
 .num{width:7ch;padding-left:1ch;text-align:right}
 /* Repos sit under the org row they add up to; an indent would push the table past 39 columns. */
 .repo a{color:var(--muted)}
 .split{display:flex;justify-content:space-between;gap:16px}
-.role{width:16ch}
+.role{width:16ch;padding-right:1ch;white-space:nowrap}
 a{color:var(--fg);text-decoration:none;white-space:nowrap}
 a::before{content:"["}a::after{content:"]"}
 /* Paper titles run past the 39-column measure, so this one link may wrap. */
@@ -68,10 +72,11 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
   <header id="who">
     <h1><span class="t">nas</span></h1>
     <p><span class="t m">anas elghoudane</span> <span class="t"><a href="https://github.com/Nas01010101">GitHub</a></span></p>
+    <p><span class="t">math &amp; computer science undergrad</span><br><span class="t">University of Montreal, 3rd year</span></p>
     <p class="gap"><span class="t">anaselghoudane [at] gmail [dot] com</span></p>
   </header>
   <div id="what">
-    <p><span class="t" aria-hidden="true">↑</span><br><span class="t"><a href="earth.html#method">what am i seeing here</a></span></p>
+    <p id="sats" hidden></p>
     <p id="note"></p>
   </div>
   <div id="spin"><span class="t" aria-hidden="true">↙</span> <span class="t"><a href="earth.html">pale blue dot</a></span></div>
@@ -79,30 +84,21 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
     <div id="copy">
       <table class="gap roles">
         <tr class="m"><th scope="col" colspan="2"><span class="t">currently</span></th></tr>
-        <tr><td class="role"><span class="t m">Co-President</span></td><td><span class="t"><a href="https://udemai.ca">UdeM AI</a></span></td></tr>
-        <tr><td class="role"><span class="t m">President</span></td><td><span class="t"><a href="https://dirobot.ca">DIROBOTS</a></span></td></tr>
+        <tr><td class="role"><span class="t m">Co-President</span></td><td><span class="t"><a href="https://udemai.ca">UdeM AI</a></span> <span class="t m">AI&nbsp;club&nbsp;at&nbsp;UdeM</span></td></tr>
+        <tr><td class="role"><span class="t m">President</span></td><td><span class="t"><a href="https://dirobot.ca">DIROBOTS</a></span> <span class="t m">robotics&nbsp;club&nbsp;at&nbsp;UdeM</span></td></tr>
         <tr><td class="role"><span class="t m">Biostats intern</span></td><td><span class="t"><a href="https://www.chumontreal.qc.ca/crchum">CHUM Research Centre</a></span></td></tr>
       </table>
       <!-- prs:start -->
-      <p class="split" data-prs="33"><span class="t">33 merged PRs, 18 repos</span><span class="t m">2026-11-21</span></p>
+      <p class="pr" data-prs="33"><span class="t m">open-source contributions</span><br><span class="t m">updated 2026-11-22</span></p>
       <table class="gap">
-        <tr data-prs="10"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Agoogle-deepmind+is%3Amerged&amp;type=pullrequests">Google DeepMind</a></span> <span class="t m">mujoco_warp, alphafold3, formal-conjectures, mujoco, dm_pix</span></td><td class="num"><span class="t">10</span></td></tr>
-        <tr data-prs="8"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3AQwenLM+is%3Amerged&amp;type=pullrequests">QwenLM</a></span> <span class="t m">qwen-code</span></td><td class="num"><span class="t">8</span></td></tr>
-        <tr data-prs="4"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Aopenclaw+is%3Amerged&amp;type=pullrequests">OpenClaw</a></span> <span class="t m">openclaw</span></td><td class="num"><span class="t">4</span></td></tr>
-        <tr data-prs="3"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3ANVIDIA+is%3Amerged&amp;type=pullrequests">NVIDIA</a></span> <span class="t m">DALI, stdexec, warp</span></td><td class="num"><span class="t">3</span></td></tr>
-        <tr data-prs="1"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Anasa+is%3Amerged&amp;type=pullrequests">NASA</a></span> <span class="t m">fprime</span></td><td class="num"><span class="t">1</span></td></tr>
-        <tr data-prs="7"><td class="orgs"><span class="t">other repos</span> <span class="t m">brpc, dora, filesystem_spec, genesis-world, ms-swift, newton, trustworthyAI</span></td><td class="num"><span class="t">7</span></td></tr>
+        <tr><td></td><td class="num"><span class="t m">merged<br>PRs</span></td><td class="num"><span class="t m">issues</span></td><td class="num"><span class="t m">total</span></td></tr>
+        <tr data-prs="10"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Agoogle-deepmind&amp;type=pullrequests">Google DeepMind</a></span></td><td class="num"><span class="t">10</span></td><td class="num"><span class="t">9</span></td><td class="num"><span class="t">19</span></td></tr>
+        <tr data-prs="3"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3ANVIDIA&amp;type=pullrequests">NVIDIA</a></span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">6</span></td></tr>
+        <tr data-prs="8"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3AQwenLM&amp;type=pullrequests">Qwen Code</a></span></td><td class="num"><span class="t">8</span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">9</span></td></tr>
+        <tr data-prs="12"><td class="orgs"><span class="t m">TensorFlow, PyTorch, NASA, ModelScope, Newton Physics, Dora, Huawei, Apache and others</span></td><td class="num"><span class="t">12</span></td><td class="num"><span class="t">20</span></td><td class="num"><span class="t">32</span></td></tr>
+        <tr><td><span class="t">total</span></td><td class="num"><span class="t">33</span></td><td class="num"><span class="t">33</span></td><td class="num"><span class="t">66</span></td></tr>
       </table>
       <!-- prs:end -->
-      <div id="prs" class="gap">
-        <p class="split"><span class="t">selected merged PRs</span><span class="t"><a href="prs.html">code and context</a></span></p>
-        <p><span class="t"><a href="https://github.com/google-deepmind/mujoco_warp/pull/1844">Use xipos for subtree_com of massless subtrees</a></span></p>
-        <p class="pr"><span class="t m">Google DeepMind, MuJoCo Warp: a body with no mass reported its centre of mass at the world origin, which broke the subtreecom sensor and cameras tracking it; it now matches MuJoCo.</span></p>
-        <p><span class="t"><a href="https://github.com/google-deepmind/formal-conjectures/pull/7703">Erdős Problem 739 in Lean</a></span></p>
-        <p class="pr"><span class="t m">Google DeepMind, Formal Conjectures: states the open question on subgraphs of infinite chromatic number, with variants from de Bruijn–Erdős, Galvin and the GCH case.</span></p>
-        <p><span class="t"><a href="https://github.com/NVIDIA/stdexec/pull/2417">Make start_now's request_stop reach its senders</a></span></p>
-        <p class="pr"><span class="t m">NVIDIA, stdexec: a stop request on start_now never reached the running work; tested under ASan, UBSan and TSan on clang and gcc.</span></p>
-      </div>
       <!-- Every Tuesday: add the paper at the top of reading.js. -->
       <div id="reading">
         <p class="split"><span class="t">reading this week</span><span class="t"><a href="reading.html">all papers</a></span></p>
@@ -128,7 +124,8 @@ reading.hidden = !READING.length;
 if (READING.length) renderPaper(document.getElementById('paper'), READING[0]);
 const side = matchMedia('(min-width:560px) and (min-aspect-ratio:1/1)');
 const scale = () => Math.min(devicePixelRatio || 1, 2);
-const planetX = () => (side.matches ? (copy.getBoundingClientRect().right + W) / 2 : W / 2);
+// Beside the text, the planet is centred between the 4rem gap and a right margin as wide as the left one.
+const planetX = () => { const r = copy.getBoundingClientRect(), gap = 4 * parseFloat(getComputedStyle(document.documentElement).fontSize); return side.matches ? (r.right + gap + W - r.left) / 2 : W / 2; };
 // Beside the text, the planet's caption stays in the planet's column.
 function fitColumn() {
   const x = planetX(), width = side.matches ? 2 * Math.min(x - copy.getBoundingClientRect().right - 8, W - x - 8) : W - 32;
@@ -161,7 +158,7 @@ function build() {
   placeSpin(head());
   boxes = [copy, who, what, spin].filter(el => !el.hidden).map(el => { const r = el.getBoundingClientRect(); return { l: r.left - mx, r: r.right + mx, t: r.top + scrollY - my, b: r.bottom + scrollY + my }; });
   // Counted by area. Text and planet cover most of a phone screen, so phones need more candidates to show any.
-  stars = Array.from({ length: Math.round(W * H / (W < 700 ? 6600 : 23040)) }, (_, i) => ({
+  stars = Array.from({ length: Math.round(W * H / (W < 700 ? 5000 : 11000)) }, (_, i) => ({
     x: hash(i, 1, 9), y: hash(i, 2, 8), b: hash(i, 7, 1), ph: hash(i, 4, 6) * 6.28, sp: .4 + 1.4 * hash(i, 5, 5),
   })).filter(clear);
   pick();
@@ -182,16 +179,21 @@ function put(col, row, glyph, ink) {
   if (col < 0 || row < 0 || col >= cols || row >= rows) return;
   const i = row * cols + col; g[i] = glyph; c[i] = ink;
 }
+// Most stars are faint dots; the brightest are drawn bigger, and about one in twenty is tinted warm or cool, as real stars are.
 function drawStars(t) {
   for (const st of stars) {
     const col = Math.floor(st.x * cols), row = Math.floor(st.y * rows);
-    const a = (.3 + .7 * st.b) * (.7 + .3 * Math.sin(t * st.sp + st.ph));
-    const ink = Math.min(3, Math.floor(a * 4));
-    if (st.b > .95 || lit.has(st)) { // A few short cross glints.
-      put(col, row, PLUS, 4);
-      for (const k of [-2, -1, 1, 2]) put(col + k, row, DASH, Math.abs(k) === 1 ? 3 : 1);
-      put(col, row - 1, PIPE, 2); put(col, row + 1, PIPE, 2);
-    } else put(col, row, st.b > .8 ? PLUS : DOT, ink);
+    if (st.b > .95 || lit.has(st)) {
+      put(col, row, STAR, SKY + 3);
+      put(col - 1, row, DASH, SKY + 2); put(col + 1, row, DASH, SKY + 2);
+      put(col - 2, row, DOT, SKY); put(col + 2, row, DOT, SKY);
+      put(col, row - 1, PIPE, SKY + 1); put(col, row + 1, PIPE, SKY + 1);
+      continue;
+    }
+    const a = (.3 + .7 * st.b) * (.6 + .4 * Math.sin(t * st.sp + st.ph));
+    const tint = st.ph < .12 ? WARM : -1;
+    const glyph = st.b > .88 ? (a > .75 ? STAR : PLUS) : st.b > .7 ? COLON : DOT;
+    put(col, row, glyph, tint >= 0 && a > .45 ? tint : SKY + 1 + Math.min(2, Math.floor(a * 3)));
   }
 }
 const head = () => (side.matches ? 0 : who.getBoundingClientRect().bottom + scrollY);
@@ -205,11 +207,12 @@ function placeSpin(floor) {
 function globe() {
   const text = copy.getBoundingClientRect(), top = text.top + scrollY, tag = spin.offsetHeight;
   let above = head();
-  // The link under the planet takes its own height out of the room.
+  // The city lines under the planet take their own height out of the room.
   const link = what.offsetHeight + 4;
   if (!side.matches) { above += tag; const R = Math.min(W * .34, ((top - above - link) / 2 - 8) / RIM); return { x: W / 2, y: above + 8 + R * RIM + Math.max(0, (top - above - link - 16 - 2 * R * RIM) / 2), R }; }
   // Beside the text: clear of the text column.
-  const view = Math.min(H, Math.max(innerHeight, top + text.height));
+  // The first screen, not the text column: the text runs past it, and centring on the text pushed the planet below the fold.
+  const view = Math.min(H, innerHeight);
   const fit = space => Math.min(W * .19, view * .35, space / 2 / RIM, (W - text.right) / 2 / RIM - 8), x = planetX();
   let room = view - link - above - 16, R = fit(room);
   // No room for the link beside the planet's shoulder, so it takes a row above the planet.
@@ -262,19 +265,25 @@ function drawOrbits(o, t) {
   // Greenwich sidereal angle plus the camera turns the fixed frame into the view.
   const spin = (280.46061837 + 360.98564736629 * days) * RAD + view, cs = Math.cos(spin), sn = Math.sin(spin);
   const size = Math.max(1, dpr * (W < 700 ? .5 : .75));
+  // The sun in the same fixed frame: its right ascension is the subsolar longitude plus the sidereal angle.
+  const ra = sun.lon + spin - view, ux = Math.cos(sun.dec) * Math.cos(ra), uy = Math.cos(sun.dec) * Math.sin(ra), uz = Math.sin(sun.dec);
   orbitsAt(orb, ms, pos, Math.floor(slice * orb.n / SLICES), Math.floor((slice + 1) * orb.n / SLICES));
   slice = (slice + 1) % SLICES;
   orbitCtx.beginPath();
+  const shade = new Path2D();
   for (let i = 0; i < orb.n; i++) {
     const a = pos[i * 3], b = pos[i * 3 + 1], e = pos[i * 3 + 2], r = Math.sqrt(a * a + b * b + e * e);
     if (r <= 1) continue;
+    // Inside Earth's shadow, a cylinder one radius wide behind the night side, a satellite gets no sunlight.
+    const d = a * ux + b * uy + e * uz, dark = d < 0 && r * r - d * d < 1;
     // toScreen, written out: this runs 17,000 times a frame and must not allocate.
     const qx = (b * cs - a * sn) / r, ey = e / r, ez = (a * cs + b * sn) / r, qy = ey * COS_PITCH - ez * SIN_PITCH;
     const sx = qx * COS_LEAN + qy * SIN_LEAN, sy = qy * COS_LEAN - qx * SIN_LEAN, sz = ey * SIN_PITCH + ez * COS_PITCH, l = lift(r);
     if (sz < 0 && l * l * (sx * sx + sy * sy) < 1) continue; // Behind the planet.
-    orbitCtx.rect((o.x + sx * l * o.R) * dpr, (o.y - sy * l * o.R) * dpr, size, size);
+    (dark ? shade : orbitCtx).rect((o.x + sx * l * o.R) * dpr, (o.y - sy * l * o.R) * dpr, size, size);
   }
   orbitCtx.fill();
+  orbitCtx.save(); orbitCtx.globalAlpha = .18; orbitCtx.fill(shade); orbitCtx.restore();
 }
 function frame(t) {
   g.fill(-1);
@@ -324,6 +333,10 @@ if (still) paint(); else requestAnimationFrame(loop);
 // The pipeline's elements are refreshed daily; the copy in this repo is the fallback.
 download(FORECAST + 'sats.bin').catch(() => download('sats.bin')).then(buf => {
   orb = loadOrbits(buf); pos = new Float32Array(orb.n * 3);
+  // The count is the file's, so it follows the daily refresh; the planet's height changes, so the layout runs again.
+  const sats = document.getElementById('sats');
+  sats.innerHTML = `<span class="t m">${orb.n.toLocaleString('en-US')} satellites in orbit, CelesTrak</span>`;
+  sats.hidden = false; build();
   orbitsAt(orb, now(), pos);
   paint();
 }).catch(() => {});

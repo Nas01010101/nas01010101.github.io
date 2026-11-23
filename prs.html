@@ -8,19 +8,24 @@
 <meta name="description" content="Five merged pull requests by Anas Elghoudane at Google DeepMind and NVIDIA, each with its context, code diff and what changed.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--surface:#111;--add:#8fd18f;--del:#e08b8b;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
+:root{--bg:#000;--fg:#e6e6e6;--muted:#9e9e9e;--surface:#111;--add:#8fd18f;--del:#e08b8b;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace}
 *{box-sizing:border-box}
 html{background:var(--bg);color:var(--fg);font:clamp(10px,calc((100vw - 32px) / 24),14px)/1.714 var(--mono);-webkit-text-size-adjust:100%}
+@media (min-width:760px){html{font-size:16px}}
 body{margin:0}
-main{padding:32px 16px;width:min(100%,84ch);margin:0 auto}
+main{padding:32px 16px;width:min(100%,72ch);margin:0 auto}
 h1,h2,h3{font:inherit;margin:0}
-h1{margin:1.714rem 0}
+/* One bold step: the page title large, section and item titles at body size. */
+h1{margin:1.714rem 0 .857rem;font:700 2rem/1.2 var(--mono)}
+h2{font-weight:700}
+h1+p{margin-bottom:5.142rem}
 h3{margin-top:1.714rem;color:var(--muted)}
 p{margin:0}
 section{margin-bottom:5.142rem}
 .m{color:var(--muted)}
 /* Diffs keep their line breaks and scroll sideways inside the block, never the page. */
-pre{margin:1.714rem 0;padding:8px 12px;background:var(--surface);overflow-x:auto;font:inherit;font-size:.857em;line-height:1.5}
+/* A diff may run wider than the prose, centred on it; past the window it scrolls inside the block. */
+pre{width:min(100vw - 32px,110ch);margin:1.714rem 0 1.714rem 50%;transform:translateX(-50%);padding:8px 12px;background:var(--surface);overflow-x:auto;font:inherit;font-size:.857em;line-height:1.5}
 pre span{display:block;white-space:pre}
 .add{color:var(--add)}.del{color:var(--del)}.hunk,.file{color:var(--muted)}.file{margin-top:8px}.file:first-child{margin-top:0}
 a{color:var(--fg);text-decoration:none;white-space:nowrap}
@@ -35,6 +40,7 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
 <main>
   <p><a href="./">back to the planet</a></p>
   <h1>pull requests</h1>
+  <p class="m">five merged changes: what was wrong, what changed, the diff</p>
   <section id="mujoco-warp">
     <h2><a class="title" href="https://github.com/google-deepmind/mujoco_warp/pull/1844">Use xipos for subtree_com of massless subtrees</a></h2>
     <p class="m">Google DeepMind, mujoco_warp #1844</p>

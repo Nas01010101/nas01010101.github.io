@@ -244,7 +244,7 @@ function globeKey() {
   list.replaceChildren();
   if (showDots && orb) item(inked('\u00b7 ', '#fff'), `satellite ${lead ? `in ${lead}\u00a0h` : 'now'}`);
   item(swatch(INKS[LAND + 2]), swatch(INKS[OCEAN + 2]), 'land, sea');
-  item(swatch(INKS[CLOUD_LAND + 2]), swatch(INKS[CLOUD_SEA + 2]), 'paler: cloud');
+  item(swatch(INKS[4]), 'white: cloud, paler at its edge');
   // Only Open-Meteo's frames carry rain.
   if (field.kind === 'meteo') item(inked('| ', INKS[OCEAN + 3]), 'rain');
   for (const { name, ink } of MARKS) item(inked('+ ', INKS[ink]), name);

@@ -80,20 +80,25 @@ function coverFrom(clouds, wet, gr, gc) {
   cover = nextCover; rain = nextRain;
 }
 
-// Stars and text stay grey; colour belongs to the planet, plus one mark per city: amber Montréal, pink Kyoto, violet Casablanca.
+// Text stays grey and stars pale yellow; colour belongs to the planet, plus one mark per city: amber Montréal, pink Kyoto, violet Casablanca.
 const RAMP = '.:-=+*#%@', GLYPHS = RAMP + '|';
 // Indices 14 to 19 are land and sea seen through cloud: the surface's ink, a little paler.
-const INKS = ['#3a3a3a', '#666', '#969696', '#c8c8c8', '#f2f2f2', '#17406f', '#20609f', '#3a8ad0', '#6cb6ea', '#2f5f3c', '#4a8a4f', '#7bb35f', '#b9cf78', '#ffb347', '#4f7a58', '#6d9f70', '#9cc28a', '#3f6a95', '#5d8bb8', '#86b2dc', '#ff7ac6', '#b48cff'];
-const OCEAN = 5, LAND = 9, HERE = 13, CLOUD_LAND = 14, CLOUD_SEA = 17, RIM = 1.1;
+const INKS = ['#3a3a3a', '#666', '#969696', '#c8c8c8', '#f2f2f2', '#17406f', '#20609f', '#3a8ad0', '#6cb6ea', '#2f5f3c', '#4a8a4f', '#7bb35f', '#b9cf78', '#ffb347', '#4f7a58', '#6d9f70', '#9cc28a', '#3f6a95', '#5d8bb8', '#86b2dc', '#ff7ac6', '#b48cff', '#ffd2a1', '#4a4636', '#7f7756', '#b8ad80', '#ece2b4'];
+const OCEAN = 5, LAND = 9, HERE = 13, CLOUD_LAND = 14, CLOUD_SEA = 17, WARM = 22, SKY = 23, RIM = 1.1;
+// SKY to SKY + 3 are star inks, dimmest first: grey with a little yellow in it.
 // The cities of cities.js, in its order; HERE stays Montréal's ink, which the page's CSS also uses.
 const MARKS = [
   { name: 'Montréal', lat: HERE_LAT, lon: HERE_LON, ink: HERE },
   { name: 'Kyoto', lat: 35.01 * RAD, lon: 135.77 * RAD, ink: 20 },
   { name: 'Casablanca', lat: 33.57 * RAD, lon: -7.59 * RAD, ink: 21 },
 ];
-const DOT = 0, PLUS = 4, DASH = 2, PIPE = 9;
+const DOT = 0, COLON = 1, DASH = 2, PLUS = 4, STAR = 5, PIPE = 9;
 
 const STREAKS = 24, STREAK = .2;
+// Texture depth above the cover threshold where a cloud stops being an edge, and where it is fully dense.
+const CLOUD_EDGE = .04, CLOUD_CORE = .14;
+// ':', '+', '*': round, light glyphs, so cloud reads as puffs over the heavy glyphs of the land.
+const CLOUD_GLYPHS = [1, 4, 5];
 const level = (s, n) => Math.min(n - 1, Math.floor(s * n));
 // One cell of the planet as glyph * 256 + ink, or -1 for no glyph.
 function surface(lat, lon, shade) {
@@ -102,15 +107,20 @@ function surface(lat, lon, shade) {
   if (shade < .05) return ground ? LAND : -1;
   const v = Math.min(MH - 1, Math.floor((lat / Math.PI + .5) * MH)), u = Math.floor(((lon / (2 * Math.PI) + .5) % 1 + 1) % 1 * MW) % MW;
   const n = cover ? cloudAt(v, u) : 0, cloudy = cover && n > cover[v * MW + u];
-  // Bands of the cloud noise, so the streaks stay put as the camera turns. Only they are opaque.
+  // Bands of the cloud noise, so the rain streaks stay put as the camera turns.
   if (cloudy && rain && rain[v * MW + u] && (n * STREAKS + .5) % 1 < STREAK) return PIPE * 256 + OCEAN + 2 + level(shade, 2);
   if (Math.abs(lat) > (ground ? 68 : 78) * RAD) return (4 + level(shade, 4)) * 256 + 2 + level(shade, 3);
-  if (cloudy && (n * STREAKS) % 1 < STREAK) return (1 + level(shade, 4)) * 256 + 2 + level(shade, 3);
-  // Between the streaks cloud only pales what is under it and keeps its glyphs, so a coast still reads through it.
-  if (cloudy) return ground ? (2 + level(shade, 5)) * 256 + CLOUD_LAND + level(shade, 3) : (1 + level(shade, 3)) * 256 + CLOUD_SEA + level(shade, 3);
-  if (ground) return (2 + level(shade, 5)) * 256 + LAND + level(shade, 4);
-  // Sea stops at '-' so it never takes the heavy glyphs that draw the continents.
-  return level(shade, 3) * 256 + OCEAN + level(shade, 4);
+  if (cloudy) {
+    // How far the texture is above the cover threshold: a cloud's thin edge only pales the surface, so a coast still reads through it,
+    // and further in it is its own white layer, denser and brighter towards the middle.
+    const depth = n - cover[v * MW + u];
+    if (depth < CLOUD_EDGE) return ground ? (3 + level(shade, 4)) * 256 + CLOUD_LAND + level(shade, 3) : level(shade, 2) * 256 + CLOUD_SEA + level(shade, 3);
+    const k = Math.min(1, (depth - CLOUD_EDGE) / (CLOUD_CORE - CLOUD_EDGE));
+    return CLOUD_GLYPHS[level(k, 3)] * 256 + 2 + level(shade * (.55 + .45 * k), 3);
+  }
+  if (ground) return (3 + level(shade, 5)) * 256 + LAND + level(shade, 4);
+  // Sea stops at ':' and its darker blues, so it never takes the glyphs or the brightness that draw the continents.
+  return level(shade, 2) * 256 + OCEAN + level(shade, 3);
 }
 // The disc's edge as glyph * 256 + ink, or -1: a ring all the way round so the night side keeps its outline, and the atmosphere past it only on the lit side.
 function limb(r, glow, ry) {

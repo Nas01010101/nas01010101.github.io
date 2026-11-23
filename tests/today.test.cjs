@@ -99,17 +99,20 @@ const ok = body => Promise.resolve({ ok: true, json: () => Promise.resolve(body)
   // The note is the city block; the older lines and the block above the planet are gone.
   for (const id of ['id="today"', 'id="fleet"', 'id="weather"', 'id="count"', 'id="meteo"', 'id="status"']) assert(!html.includes(id), id);
 
-  // Merged PRs only: one headline total, one row per organisation listing its repos, rows add up to the total.
+  // Contributions: three named organisations and one row for the rest, each total is PRs plus issues, and the total row adds them up.
   const rows = [...html.matchAll(/<tr data-prs="(\d+)">(.*?)<\/tr>/g)].map(([, prs, row]) => [+prs, ...[...row.matchAll(/class="num"><span class="t">(\d+)</g)].map(m => +m[1])]);
-  const [, total, merged] = html.match(/<p class="split" data-prs="(\d+)"><span class="t">(\d+) merged PRs, \d+ repos<\/span>/).map(Number);
-  assert.strictEqual(total, merged);
-  assert(!/\d+ (opened|issues|reviews|open-source contributions)/.test(html), 'only merged PRs are counted');
-  assert(html.includes('<span class="t m">alphafold3, '), 'repos are listed after the organisation');
-  rows.forEach(r => assert.strictEqual(r.length, 2, 'one count column'));
-  rows.forEach(([prs, m]) => assert.strictEqual(prs, m));
-  assert.strictEqual(rows.reduce((a, r) => a + r[1], 0), merged);
-  const picks = [...html.match(/<div id="prs"[\s\S]*?<\/div>/)[0].matchAll(/href="https:\/\/github.com\/([^/]+)\/[^"]+\/pull\/\d+"/g)].map(m => m[1]);
-  assert.deepStrictEqual(picks, ['google-deepmind', 'google-deepmind', 'NVIDIA']);
+  const merged = +html.match(/<p class="pr" data-prs="(\d+)">/)[1];
+  const totals = html.match(/<span class="t">total<\/span><\/td>(.*?)<\/tr>/)[1].match(/\d+/g).map(Number);
+  assert.deepStrictEqual(html.match(/<tr data-prs="\d+"><td class="orgs">.*?<\/td>/g).map(r => r.replace(/<[^>]*>/g, '').split(',')[0]), ['Google DeepMind', 'NVIDIA', 'Qwen Code', 'TensorFlow']);
+  rows.forEach(([prs, p, i, t]) => { assert.strictEqual(prs, p); assert.strictEqual(t, p + i); });
+  [1, 2, 3].forEach(k => assert.strictEqual(rows.reduce((a, r) => a + r[k], 0), totals[k - 1]));
+  assert.strictEqual(totals[0], merged);
+  assert(!html.includes('class="t big"'), 'numbers are body size');
+  // The PR lists are gone; the table counts merged PRs; the clubs say what they are; the satellite count is filled from the orbit file.
+  for (const gone of ['review:start', 'latest:start', 'under review at', 'latest merged PRs']) assert(!html.includes(gone), gone);
+  assert(html.includes('merged<br>PRs'));
+  assert(html.includes('AI&nbsp;club&nbsp;at&nbsp;UdeM') && html.includes('robotics&nbsp;club&nbsp;at&nbsp;UdeM'));
+  assert(html.includes('<p id="sats" hidden></p>') && /satellites in orbit, CelesTrak/.test(html) && /orb\.n\.toLocaleString/.test(html));
   console.log('ok');
 })().catch(err => { console.error(err); process.exit(1); });
 
@@ -117,8 +120,7 @@ require('node:test')('the pull request page holds each picked PR with an escaped
   const fs = require('node:fs'), path = require('node:path');
   const read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   const home = read('index.html'), page = read('prs.html');
-  assert(home.includes('href="prs.html"'));
-  for (const url of home.match(/<div id="prs"[\s\S]*?<\/div>/)[0].match(/https:\/\/github\.com\/[^"]+\/pull\/\d+/g)) assert(page.includes(`href="${url}"`), url);
+  assert(!home.includes('id="prs"') && !home.includes('selected merged PRs'));
   assert.strictEqual((page.match(/<section id=/g) || []).length, 5);
   assert.strictEqual((page.match(/<pre>/g) || []).length, 5);
   // Diff text is escaped: C++ templates and Lean arrows appear as entities or literal text, never as tags.

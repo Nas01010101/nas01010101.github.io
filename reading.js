@@ -1,5 +1,6 @@
 // Newest first. Every Tuesday: add a line at the top. The home page shows the first; reading.html lists them all.
 const READING = [
+  { title: 'Fields of The World: A Machine Learning Benchmark Dataset For Global Agricultural Field Boundary Segmentation', author: 'Hannah Kerner et al., with Jennifer Marcus', url: 'https://arxiv.org/abs/2409.16252' },
   { title: 'WeatherNext 3: Increasing resolution and performance of global weather models with raw observations', author: 'Stephan Rasp et al., with Peter Battaglia', url: 'https://arxiv.org/abs/2609.03582' },
   { title: 'Understanding Adam Requires Better Rotation Dependent Assumptions', author: 'Tianyue H. Zhang et al., with Ioannis Mitliagkas', url: 'https://arxiv.org/abs/2410.19964' },
 ];

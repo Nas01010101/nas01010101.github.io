@@ -12,15 +12,16 @@
 <link rel="preload" as="fetch" crossorigin href="https://raw.githubusercontent.com/Nas01010101/ascii-earth-forecast/data/sats.bin">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2320609f'/%3E%3Ccircle cx='6' cy='6' r='2' fill='%23ffb347'/%3E%3C/svg%3E">
 <style>
-:root{--bg:#000;--fg:#e6e6e6;--muted:#8c8c8c;--net:#36d07f;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace;--ratio:2.0546;--col:min(100% - 32px,1120px,var(--ratio) * 78vh)}
+:root{--bg:#000;--fg:#e6e6e6;--muted:#9e9e9e;--net:#36d07f;--here:#ffb347;--mono:Consolas,"SFMono-Regular",Menlo,"DejaVu Sans Mono",monospace;--ratio:2.0546;--col:min(100% - 32px,1120px,var(--ratio) * 78vh)}
 /* The whole map fits in one window at any width, so scrolling never cuts it. */
 @supports (height:1svh){:root{--col:min(100% - 32px,1120px,var(--ratio) * 78svh)}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html{background:var(--bg);color:var(--fg);font:12px/1.714 var(--mono);-webkit-text-size-adjust:100%}
-@media (min-width:700px){html{font-size:14px}}
+html{background:var(--bg);color:var(--fg);font:14px/1.714 var(--mono);-webkit-text-size-adjust:100%}
+@media (min-width:700px){html{font-size:15px}}
+@media (min-width:1100px){html{font-size:16px}}
 body{margin:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
-h1,h2{margin:0;font:inherit}
+h1,h2{margin:0;font:inherit;font-weight:700}
 p{margin:0}
 .m{color:var(--muted)}
 .net{color:var(--net)}
@@ -71,7 +72,7 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 .sw.line{position:relative}
 .sw.line::after{content:"";position:absolute;inset:5px 0 auto;height:2px;background:#000}
 .ramp{color:#f2f2f2;padding-inline:4px}
-#facts{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;margin-top:32px;font-size:14px}
+#facts{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;margin-top:48px}
 #facts h2{margin-bottom:8px}
 .lines{color:var(--muted)}
 .lines>p:first-child{color:var(--fg)}
@@ -79,16 +80,16 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
 #facts .more{margin-top:8px}
 @media (min-width:900px) and (min-height:501px){#facts{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
-#method{max-width:72ch;margin-top:96px;font-size:14px}
+#method{max-width:72ch;margin-top:128px}
 #method h2{margin-bottom:16px}
-#method h3{margin:48px 0 8px;font:inherit}
+#method h3{margin:48px 0 8px;font:inherit;font-weight:700}
 #method p,#method li{margin-bottom:8px}
 #method ul{padding-left:2ch;margin:0 0 8px}
-#method .eq{white-space:pre-wrap;margin:8px 0 16px}
 #drawing{margin:48px 0 0}
 #drawing img{display:block;max-width:100%;height:auto}
 #drawing figcaption{margin-top:8px}
 #method pre{margin:8px 0 16px;overflow-x:auto;font:inherit}
+#method .pipe{margin:32px 0;line-height:1.35}
 /* A phone's thumb needs more than a line of text. */
 @media (pointer:coarse){a,button{padding:6px 2px}}
 /* A phone on its side has no height to stack in, so the map moves beside the globe. */
@@ -153,28 +154,35 @@ a:focus-visible,button:focus-visible{outline:1px solid var(--fg);outline-offset:
   </div>
   <article id="method" aria-labelledby="method-h">
     <h2 id="method-h">method</h2>
-    <p>Two things on this page are our forecasts: the weather on the map and globe, and a correction to where satellites will be. The rest is published data.</p>
+    <p>Twice a day a GitHub job feeds fresh public data to two kinds of neural network and writes the files this page draws. Every forecast is scored once its day has passed: the weather against repeating yesterday, the satellites against SGP4 alone.</p>
+    <pre class="pipe" data-net="unet" role="img" aria-label="Weather U-Net: 30 days of Open-Meteo fields pass down four blocks that halve the grid and up three that double it, with skip links across, to today's mean in every cell"><span class="m">weather</span>
+Open-Meteo: 1,152 cells, 7 fields
+  │ last 30 days, every 6 hours
+  ▼
+U-Net on the 24×48 grid
+  4 down blocks ─skip─► 3 up blocks
+  cloud: 1 net, temp: 3, pressure: 3
+  │ today's mean in every cell
+  ▼
+map glyphs and colours, the globe</pre>
+    <pre class="pipe" id="method-orbits" data-net="mlp" role="img" aria-label="Satellite residual net: 45 inputs per object pass through 6 blocks of 256 to a height, along-track and cross-track correction added to SGP4"><span class="m">satellites</span>
+CelesTrak: ~17,000 orbits a day
+  ├─► SGP4 physics ───────────┐
+  └─► residual net            │
+      45 inputs per object    │
+      6 blocks × 256, 3 nets  │
+      │ its error in km       │
+      ▼                       ▼
+      sum ─► dots on the globe</pre>
+    <p class="more"><a href="https://github.com/Nas01010101/ascii-earth-forecast#architecture">layers, training data and tests</a></p>
 
-    <h3 id="method-weather-h">1. weather</h3>
-    <p>The Earth is cut into 1,152 cells on a 7.5° grid. Each morning a U-Net reads the past 30 days of 7 fields in every cell (cloud, temperature, rain, pressure, wind east and north, water vapour) and predicts today's mean cloud, temperature and pressure. One network forecasts cloud; temperature and pressure are each the mean of 3. The cloud network was trained on ERA5, 1979 to 2018, and tested on 2021 and 2022; the other two were trained on ERA5, then tuned on 30 days of Open-Meteo. Until they run, the map shows Open-Meteo's forecast and says so.</p>
-    <p>A day is scored once it has passed, against Open-Meteo's model output for that day, with each cell weighted by its area:</p>
-    <p class="eq">loss = Σ w · (f − a)² / Σ w,  w = cos(latitude)</p>
-    <p>The bars show its square root, the typical miss. The bar to beat is repeating the day before.</p>
+    <h3>weather scores</h3>
     <div id="method-weather"><p class="m">loading scores</p></div>
 
-    <h3 id="method-orbits">2. satellite positions</h3>
-    <p>CelesTrak publishes each object's mean elements at one moment. The page moves about 17,000 objects from that moment to now with the secular J2 part of SGP4: the Earth's flattening turns each orbit's node Ω and perigee ω at a steady rate.</p>
-    <p class="eq">dΩ/dt = −1.5 J2 n cos i / p²
-dω/dt = 0.75 J2 n (5 cos²i − 1) / p²
-dM/dt = n (1 + 0.75 J2 √(1−e²) (3 cos²i − 1) / p²)</p>
-    <p>Kepler's equation M = E − e sin E is solved by Newton's method. In the page's test on a sample of the catalogue, 95% of low-orbit dots a day ahead land within 20 km of full SGP4.</p>
-
-    <h3 id="method-network">3. satellite correction</h3>
-    <p>SGP4 drifts from where an object will be, mostly along its track. A residual network reads each object's elements and how far its older element sets drifted, and corrects SGP4 for 1 to 30 days ahead. It is the mean of 3 networks trained on published element sets. The truth is SGP4 from the next published element set, not a radar measurement.</p>
+    <h3 id="method-network">satellite scores</h3>
     <div id="method-sats"><p class="m">loading scores</p></div>
-    <p class="m">2025 replay on an eighth of the catalogue: the median miss 7 days ahead fell from 11.34 to 6.76 km. The corrections are under one pixel of the globe a day ahead, so the dots leave them out.</p>
 
-    <h3>4. data</h3>
+    <h3>data</h3>
     <p class="m">Weather by <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0). Elements by <a href="https://celestrak.org/NORAD/elements/">CelesTrak</a>. ERA5 through <a href="https://weatherbench2.readthedocs.io/">WeatherBench 2</a>. Code and weights: <a href="https://github.com/Nas01010101/ascii-earth-forecast">ascii-earth-forecast</a>.</p>
     <figure id="drawing">
       <img src="earth-drawing.png" width="300" height="299" loading="lazy" alt="Hand drawing of the Earth: wobbly continents, the UK as one dot labelled probably, a stick figure labelled me in North America, and a big spider on Australia">
@@ -187,6 +195,7 @@ dM/dt = n (1 + 0.75 J2 √(1−e²) (3 cos²i − 1) / p²)</p>
 <script src="mapmath.js"></script>
 <script src="earthinfo.js"></script>
 <script src="method.js"></script>
+<script src="netanim.js"></script>
 <script src="earth.js"></script>
 <script src="earthmap.js"></script>
 </body>
