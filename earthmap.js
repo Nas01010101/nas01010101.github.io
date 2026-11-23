@@ -12,6 +12,9 @@ let mLat, mLon, mBand, mLand, mGlyph, mLit, mShown;
 // What colours the map: the day's temperature when the field has one and the visitor has not asked for terrain.
 let wantTemp = true, layer = 'terrain';
 let field = { kind: 'none', key: 'none', date: null, grid: null, temp: null, pressure: null, nets: [], rows: GRID_ROWS, cols: GRID_COLS };
+// While the play button is on, the map and globe step through Open-Meteo's 3-hourly frames for today and tomorrow, PLAY_MS each.
+const PLAY_MS = 600;
+let playFrom = null;
 let settled = false, tapped = null, hovered = null, aim = null, mapPress = null, cloudsOwn = false, linesKey = '';
 
 const isoDay = ms => new Date(ms).toISOString().slice(0, 10);
@@ -263,7 +266,9 @@ function fleetNote() {
 }
 
 function refreshField() {
-  const real = still ? opened : now(), today = todayOf(meta), frame = frameAt(real), kind = chooseField(today, isoDay(real), frame >= 0);
+  const real = still ? opened : now(), today = todayOf(meta), playing = playFrom !== null && weather;
+  const frame = playing ? Math.floor((performance.now() - playFrom) / PLAY_MS) % weather.frames : frameAt(real);
+  const kind = playing ? 'meteo' : chooseField(today, isoDay(real), frame >= 0);
   const key = kind === 'network' ? `n${today.date}` : kind === 'meteo' ? `m${frame}` : 'none';
   if (key === field.key) return;
   field = { kind, key, date: null, grid: null, temp: null, pressure: null, nets: [], rows: GRID_ROWS, cols: GRID_COLS };
@@ -280,6 +285,7 @@ function refreshField() {
     field.rows = weather.rows; field.cols = weather.columns;
     field.at = weather.start + frame * weather.step;
   }
+  $('play-at').textContent = playing ? new Date(field.at).toISOString().slice(5, 16).replace('T', ' ') + ' UTC' : '';
   cloudsOwn = false;
   applyLayer();
   globeKey();
@@ -292,6 +298,7 @@ function refreshField() {
 // The globe shows the map's own day; past it, Open-Meteo's frames while they last, and the note says so.
 function applyClouds(T) {
   const note = $('cloud-note');
+  if (playFrom !== null && field.kind === 'meteo') T = field.at;
   let text = '';
   if (field.kind === 'network' && isoDay(T) === field.date) {
     if (!cloudsOwn) { coverFrom(Uint8Array.from(field.grid), null, field.rows, field.cols); cloudsOwn = true; frameShown = -1; }
@@ -354,6 +361,12 @@ mapEl.addEventListener('pointerleave', () => { if (!mapPress) { hovered = null; 
 const pickLayer = temp => () => { wantTemp = temp; applyLayer(); mapSource(); dirty = true; };
 $('layer-temp').addEventListener('click', pickLayer(true));
 $('layer-terrain').addEventListener('click', pickLayer(false));
+$('play').addEventListener('click', () => {
+  playFrom = playFrom === null ? performance.now() : null;
+  $('play').setAttribute('aria-pressed', playFrom !== null);
+  $('play').textContent = playFrom === null ? 'play 48 h' : 'stop';
+  refreshField();
+});
 
 // Where the page scrolls, a vertical swipe on the map has to scroll it instead of turning the globe.
 function mapTouch() { mapEl.style.touchAction = document.documentElement.scrollHeight > innerHeight ? 'pan-y' : 'none'; }
@@ -375,7 +388,7 @@ const dots = download(`${FORECAST}sats.bin`).catch(() => download('sats.bin')).t
   if (showDots) $('sats').hidden = true;
 });
 const info = fetch(`${FORECAST}forecast.json`).then(r => (r.ok ? r.json() : Promise.reject(r.status))).then(data => { meta = data; dirty = true; renderMethod(data); }).catch(() => { meta = null; renderMethod(null); });
-const planetLoad = download(`${FORECAST}planet.bin`).then(buffer => { loadWeather(buffer); dirty = true; }).catch(() => {});
+const planetLoad = download(`${FORECAST}planet.bin`).then(buffer => { loadWeather(buffer); $('play').hidden = false; dirty = true; }).catch(() => {});
 // Until both have answered the map says it is loading; after that, an empty map means nothing reached the page.
 Promise.allSettled([info, planetLoad]).then(() => { settled = true; mapReadout(); mapSource(); });
 new ResizeObserver(() => { fit(); fitMap(); mapTouch(); }).observe(document.documentElement);

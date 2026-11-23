@@ -73,3 +73,9 @@ test('readHistory reads the last 30 days and their dates from a numpy npz', asyn
   assert.strictEqual(days[0].cloud[0], 10); assert.strictEqual(days[29].cloud[23 * 48], 100);
   await assert.rejects(readHistory(new ArrayBuffer(40)));
 });
+
+test('the map has a hidden play button that the weather file reveals and the map script wires up', () => {
+  const earth = fs.readFileSync(path.join(__dirname, '..', 'earth.html'), 'utf8'), map = fs.readFileSync(path.join(__dirname, '..', 'earthmap.js'), 'utf8');
+  assert.match(earth, /<button id="play" type="button" aria-pressed="false" hidden>play 48 h<\/button> <span id="play-at"><\/span>/);
+  assert.ok(map.includes("$('play').hidden = false") && map.includes("$('play').addEventListener('click'"));
+});
