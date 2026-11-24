@@ -34,8 +34,10 @@ main>#who{width:min(100%,39ch);margin:0 auto;padding-top:16px}
 /* The planet sits beside the text on landscape screens and above it on portrait ones; globe() reads the same query. */
 @media (min-width:600px) and (max-aspect-ratio:999/1000){html{font-size:16px}}
 @media (min-width:560px) and (min-aspect-ratio:1/1){.hero{align-items:flex-start;justify-content:center;padding:32px 0}}
-@media (min-width:760px) and (min-aspect-ratio:1/1){html{font-size:clamp(16px,min(.9vw,1.9vh),20px)}/* Text, a 4rem gap and the planet (at most .19 of the width or .35 of the height, times RIM 1.1, twice) sit centred as one group; planetX() mirrors the left margin on the right. */
-.hero{padding-left:max(16px,calc((100vw - 39ch - 4rem - min(41.8vw,77vh)) / 2))}}
+@media (min-width:760px) and (min-aspect-ratio:1/1){html{font-size:clamp(16px,min(.9vw,1.9vh),20px)}/* The text keeps to a left column so the planet gets the rest of the screen; planetX() centres it there. */
+.hero{padding-left:max(32px,5vw)}
+/* Wider than a phone's 39 columns, so each club and its description share one line. */
+#copy{width:50ch}}
 h1{margin:0 0 .857rem;font:700 2rem/1.2 var(--mono)}
 /* Section names are the one bold step between the name and the body. */
 .roles th .t,.pr .t:first-child,#reading .split .t:first-child{color:var(--fg);font-weight:700}
@@ -98,7 +100,7 @@ a:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
         <tr data-prs="10"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3Agoogle-deepmind&amp;type=pullrequests">Google DeepMind</a></span></td><td class="num"><span class="t">10</span></td><td class="num"><span class="t">9</span></td><td class="num"><span class="t">19</span></td></tr>
         <tr data-prs="3"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3ANVIDIA&amp;type=pullrequests">NVIDIA</a></span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">3</span></td><td class="num"><span class="t">6</span></td></tr>
         <tr data-prs="8"><td class="orgs"><span class="t"><a href="https://github.com/search?q=author%3ANas01010101+org%3AQwenLM&amp;type=pullrequests">Qwen Code</a></span></td><td class="num"><span class="t">8</span></td><td class="num"><span class="t">1</span></td><td class="num"><span class="t">9</span></td></tr>
-        <tr data-prs="12"><td class="orgs"><span class="t m">TensorFlow, PyTorch, NASA, ModelScope, Newton Physics, Dora, Huawei, Apache and others</span></td><td class="num"><span class="t">12</span></td><td class="num"><span class="t">20</span></td><td class="num"><span class="t">32</span></td></tr>
+        <tr data-prs="12"><td class="orgs"><span class="t m">TensorFlow, PyTorch, NASA, Apache and others</span></td><td class="num"><span class="t">12</span></td><td class="num"><span class="t">20</span></td><td class="num"><span class="t">32</span></td></tr>
         <tr><td><span class="t">total</span></td><td class="num"><span class="t">33</span></td><td class="num"><span class="t">33</span></td><td class="num"><span class="t">66</span></td></tr>
       </table>
       <!-- prs:end -->
@@ -127,8 +129,8 @@ reading.hidden = !READING.length;
 if (READING.length) renderPaper(document.getElementById('paper'), READING[0]);
 const side = matchMedia('(min-width:560px) and (min-aspect-ratio:1/1)');
 const scale = () => Math.min(devicePixelRatio || 1, 2);
-// Beside the text, the planet is centred between the 4rem gap and a right margin as wide as the left one.
-const planetX = () => { const r = copy.getBoundingClientRect(), gap = 4 * parseFloat(getComputedStyle(document.documentElement).fontSize); return side.matches ? (r.right + gap + W - r.left) / 2 : W / 2; };
+// Beside the text, the planet is centred in the space right of the text column.
+const planetX = () => (side.matches ? (copy.getBoundingClientRect().right + W) / 2 : W / 2);
 // Beside the text, the planet's caption stays in the planet's column.
 function fitColumn() {
   const x = planetX(), width = side.matches ? 2 * Math.min(x - copy.getBoundingClientRect().right - 8, W - x - 8) : W - 32;
@@ -216,7 +218,7 @@ function globe() {
   // Beside the text: clear of the text column.
   // The first screen, not the text column: the text runs past it, and centring on the text pushed the planet below the fold.
   const view = Math.min(H, innerHeight);
-  const fit = space => Math.min(W * .19, view * .35, space / 2 / RIM, (W - text.right) / 2 / RIM - 8), x = planetX();
+  const fit = space => Math.min(W * .24, view * .35, space / 2 / RIM, (W - text.right) / 2 / RIM - 8), x = planetX();
   let room = view - link - above - 16, R = fit(room);
   // No room for the link beside the planet's shoulder, so it takes a row above the planet.
   if (x + R * .71 + spin.offsetWidth + 8 > W) { above += tag; room -= tag; R = fit(room); }

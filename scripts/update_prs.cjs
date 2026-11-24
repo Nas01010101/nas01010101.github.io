@@ -20,7 +20,7 @@ const label = owner => (Object.entries(LABELS).find(([k]) => k.toLowerCase() ===
 const APPLIED = ['google-deepmind/alphafold3#765', 'google-deepmind/alphafold3#766', 'google-deepmind/mujoco#3301', 'NVIDIA/DALI#6604'];
 // The organisations with a row of their own, in this order; every other one is counted in the last row.
 const TOP = ['google-deepmind', 'NVIDIA', 'QwenLM'];
-const OTHERS = 'TensorFlow, PyTorch, NASA, ModelScope, Newton Physics, Dora, Huawei, Apache and others';
+const OTHERS = 'TensorFlow, PyTorch, NASA, Apache and others';
 
 const headers = token => ({ Accept: 'application/vnd.github+json', 'User-Agent': 'site-pr-count', ...(token && { Authorization: `Bearer ${token}` }) });
 
